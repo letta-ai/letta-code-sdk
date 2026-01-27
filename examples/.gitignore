@@ -1,0 +1,11 @@
+# Generated state files
+**/state.json
+**/seminar-state.json
+**/team-state.json
+
+# Generated output
+**/output/
+**/transcripts/
+
+# Generated rulebooks (created by DM)
+**/rulebook.md
