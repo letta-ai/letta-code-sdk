@@ -87,7 +87,6 @@ export type MemoryPreset = "persona" | "human" | "project";
 
 /**
  * Callback for custom permission handling.
- * Return CanUseToolResponse from @letta-ai/letta-code/protocol.
  */
 export type CanUseToolCallback = (
   toolName: string,
