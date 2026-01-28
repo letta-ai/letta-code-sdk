@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Letta Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    header {
+      background: #16213e;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #0f3460;
+    }
+    
+    header h1 {
+      font-size: 1.2rem;
+      color: #e94560;
+    }
+    
+    .status {
+      font-size: 0.8rem;
+      color: #888;
+    }
+    
+    .status.connected {
+      color: #4ade80;
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+    }
+    
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 1rem;
+    }
+    
+    .message {
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+    
+    .message.user {
+      background: #0f3460;
+      margin-left: auto;
+    }
+    
+    .message.assistant {
+      background: #16213e;
+      border: 1px solid #0f3460;
+    }
+    
+    .message.tool {
+      background: transparent;
+      border: 1px dashed #444;
+      font-size: 0.8rem;
+      color: #888;
+      max-width: 100%;
+    }
+    
+    .message pre {
+      background: #0d1117;
+      padding: 0.5rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+    
+    .message code {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 0.9em;
+    }
+    
+    .input-area {
+      display: flex;
+      gap: 0.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #0f3460;
+    }
+    
+    #message-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      background: #16213e;
+      color: #eee;
+      font-size: 1rem;
+      outline: none;
+    }
+    
+    #message-input:focus {
+      border-color: #e94560;
+    }
+    
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    
+    button:hover {
+      background: #d63850;
+    }
+    
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+    
+    .sidebar {
+      width: 300px;
+      background: #16213e;
+      border-left: 1px solid #0f3460;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    
+    .sidebar h2 {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .memory-block {
+      margin-bottom: 1rem;
+    }
+    
+    .memory-block h3 {
+      font-size: 0.85rem;
+      color: #e94560;
+      margin-bottom: 0.5rem;
+    }
+    
+    .memory-block pre {
+      background: #0d1117;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    
+    .actions {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #0f3460;
+    }
+    
+    .actions button {
+      width: 100%;
+      background: #0f3460;
+      font-size: 0.85rem;
+      padding: 0.5rem;
+    }
+    
+    .actions button:hover {
+      background: #1a4a7a;
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧠 Letta Chat</h1>
+    <span id="status" class="status">Connecting...</span>
+  </header>
+  
+  <main>
+    <div class="chat-container">
+      <div id="messages" class="messages"></div>
+      <div class="input-area">
+        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+        <button id="send-btn">Send</button>
+      </div>
+    </div>
+    
+    <aside class="sidebar">
+      <h2>Agent Memory</h2>
+      <div id="memory-blocks"></div>
+      <div class="actions">
+        <button id="reset-btn">Reset Agent</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusEl = document.getElementById('status');
+    const memoryEl = document.getElementById('memory-blocks');
+    const resetBtn = document.getElementById('reset-btn');
+    
+    let isStreaming = false;
+    
+    // Check status on load
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.agentId) {
+          statusEl.textContent = `Agent: ${data.agentId.slice(0, 12)}...`;
+          statusEl.className = 'status connected';
+        } else {
+          statusEl.textContent = 'New session';
+          statusEl.className = 'status';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Disconnected';
+      }
+    }
+    
+    // Load memory
+    async function loadMemory() {
+      try {
+        const res = await fetch('/api/memory');
+        const data = await res.json();
+        memoryEl.innerHTML = data.blocks.map(block => `
+          <div class="memory-block">
+            <h3>${block.label}</h3>
+            <pre>${escapeHtml(block.value)}</pre>
+          </div>
+        `).join('');
+      } catch (err) {
+        memoryEl.innerHTML = '<p style="color:#888;font-size:0.8rem;">Could not load memory</p>';
+      }
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Add message to chat
+    function addMessage(role, content) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = formatMessage(content);
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+    
+    // Format message (basic markdown)
+    function formatMessage(text) {
+      return escapeHtml(text)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+    
+    // Send message
+    async function sendMessage() {
+      const message = inputEl.value.trim();
+      if (!message || isStreaming) return;
+      
+      inputEl.value = '';
+      isStreaming = true;
+      sendBtn.disabled = true;
+      
+      addMessage('user', message);
+      const assistantDiv = addMessage('assistant', '');
+      
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullResponse = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'text') {
+                fullResponse += data.content;
+                assistantDiv.innerHTML = formatMessage(fullResponse);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+              } else if (data.type === 'tool') {
+                addMessage('tool', `Using ${data.name}...`);
+              } else if (data.type === 'done') {
+                checkStatus();
+                loadMemory();
+              } else if (data.type === 'error') {
+                assistantDiv.innerHTML = `<span style="color:#e94560;">Error: ${escapeHtml(data.message)}</span>`;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        assistantDiv.innerHTML = `<span style="color:#e94560;">Error: ${escapeHtml(err.message)}</span>`;
+      }
+      
+      isStreaming = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+    
+    // Reset agent
+    async function resetAgent() {
+      if (!confirm('Reset agent? This will clear all memory.')) return;
+      
+      try {
+        await fetch('/api/reset', { method: 'POST' });
+        messagesEl.innerHTML = '';
+        checkStatus();
+        loadMemory();
+      } catch (err) {
+        alert('Failed to reset: ' + err.message);
+      }
+    }
+    
+    // Event listeners
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    resetBtn.addEventListener('click', resetAgent);
+    
+    // Init
+    checkStatus();
+    loadMemory();
+    inputEl.focus();
+  </script>
+</body>
+</html>
