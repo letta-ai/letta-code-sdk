@@ -113,6 +113,7 @@ console.log(`Starting web chat server on http://localhost:${PORT}`);
 // Start server
 Bun.serve({
   port: PORT,
+  idleTimeout: 120, // 2 minutes for slow LLM responses
   
   async fetch(req) {
     const url = new URL(req.url);
@@ -151,16 +152,21 @@ Bun.serve({
       }
       
       // Stream response
+      const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
+          const send = (data: object) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          };
+          
           try {
             await sess.send(message);
             
             for await (const msg of sess.stream()) {
               if (msg.type === 'assistant') {
-                controller.enqueue(`data: ${JSON.stringify({ type: 'text', content: msg.content })}\n\n`);
+                send({ type: 'text', content: msg.content });
               } else if (msg.type === 'tool_call' && 'toolName' in msg) {
-                controller.enqueue(`data: ${JSON.stringify({ type: 'tool', name: msg.toolName })}\n\n`);
+                send({ type: 'tool', name: msg.toolName });
               } else if (msg.type === 'result') {
                 // Update agent ID if we got it
                 if (!state.agentId && sess.agentId) {
@@ -170,10 +176,10 @@ Bun.serve({
               }
             }
             
-            controller.enqueue(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+            send({ type: 'done' });
             controller.close();
           } catch (err) {
-            controller.enqueue(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`);
+            send({ type: 'error', message: String(err) });
             controller.close();
           }
         },
