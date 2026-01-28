@@ -167,7 +167,7 @@
       margin-bottom: 0.5rem;
     }
     
-    .memory-block pre {
+    .memory-block textarea {
       background: #0d1117;
       padding: 0.5rem;
       border-radius: 4px;
@@ -176,6 +176,29 @@
       word-break: break-word;
       max-height: 150px;
       overflow-y: auto;
+      width: 100%;
+      border: 1px solid #0f3460;
+      color: #eee;
+      resize: vertical;
+      min-height: 80px;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+    
+    .memory-block textarea:focus {
+      outline: none;
+      border-color: #e94560;
+    }
+    
+    .memory-block .save-btn {
+      margin-top: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      background: #0f3460;
+      display: none;
+    }
+    
+    .memory-block .save-btn.visible {
+      display: inline-block;
     }
     
     .actions {

@@ -8,6 +8,10 @@
  * Usage:
  *   bun server.ts              # Start server on port 3000
  *   bun server.ts --port=8080  # Custom port
+ * 
+ * Requirements:
+ *   - LETTA_API_KEY environment variable (or logged in via `letta auth`)
+ *   - bun add @letta-ai/letta-client (for memory reading)
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -17,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { createSession, resumeSession, type Session } from '../../src/index.js';
+import Letta from '@letta-ai/letta-client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,6 +34,12 @@ interface AppState {
 
 let session: Session | null = null;
 let state: AppState = { agentId: null };
+
+// Letta client for memory operations
+const lettaClient = new Letta({
+  baseUrl: process.env.LETTA_BASE_URL || 'https://api.letta.com',
+  apiKey: process.env.LETTA_API_KEY,
+});
 
 // Load state
 async function loadState(): Promise<void> {
@@ -179,13 +190,43 @@ Bun.serve({
     
     // API: Get memory
     if (url.pathname === '/api/memory' && req.method === 'GET') {
-      // For now, return placeholder - would need SDK support to read memory
-      return Response.json({
-        blocks: [
-          { label: 'user-context', value: '(Memory reading not yet implemented in SDK)' },
-          { label: 'conversation-notes', value: '(Memory reading not yet implemented in SDK)' },
-        ]
-      });
+      if (!state.agentId) {
+        return Response.json({ blocks: [] });
+      }
+      
+      try {
+        const blocks = await lettaClient.agents.blocks.list(state.agentId);
+        return Response.json({
+          blocks: blocks.map(b => ({
+            label: b.label,
+            value: b.value,
+            description: b.description,
+          }))
+        });
+      } catch (err) {
+        console.error('Failed to read memory:', err);
+        return Response.json({ blocks: [], error: String(err) });
+      }
+    }
+    
+    // API: Update memory
+    if (url.pathname === '/api/memory' && req.method === 'POST') {
+      if (!state.agentId) {
+        return Response.json({ error: 'No agent' }, { status: 400 });
+      }
+      
+      const { label, value } = await req.json();
+      if (!label || value === undefined) {
+        return Response.json({ error: 'label and value required' }, { status: 400 });
+      }
+      
+      try {
+        await lettaClient.agents.blocks.update(state.agentId, label, { value });
+        return Response.json({ ok: true });
+      } catch (err) {
+        console.error('Failed to update memory:', err);
+        return Response.json({ error: String(err) }, { status: 500 });
+      }
     }
     
     // API: Reset
