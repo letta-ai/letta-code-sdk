@@ -5,407 +5,150 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Letta Chat</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a2e;
+      font-family: system-ui, sans-serif;
+      background: #111;
       color: #eee;
       height: 100vh;
       display: flex;
       flex-direction: column;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 1rem;
     }
-    
     header {
-      background: #16213e;
-      padding: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #0f3460;
+      padding: 0.5rem 0 1rem;
+      border-bottom: 1px solid #333;
+      margin-bottom: 1rem;
     }
-    
-    header h1 {
-      font-size: 1.2rem;
-      color: #e94560;
-    }
-    
-    .status {
-      font-size: 0.8rem;
-      color: #888;
-    }
-    
-    .status.connected {
-      color: #4ade80;
-    }
-    
-    main {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-    
-    .chat-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 1rem;
-    }
-    
+    header h1 { font-size: 1rem; color: #888; }
     .messages {
       flex: 1;
       overflow-y: auto;
-      padding-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
-    
-    .message {
-      margin-bottom: 1rem;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      max-width: 80%;
+    .msg {
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      max-width: 85%;
     }
-    
-    .message.user {
-      background: #0f3460;
-      margin-left: auto;
+    .msg.user {
+      background: #333;
+      align-self: flex-end;
     }
-    
-    .message.assistant {
-      background: #16213e;
-      border: 1px solid #0f3460;
+    .msg.assistant {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      align-self: flex-start;
     }
-    
-    .message.tool {
-      background: transparent;
-      border: 1px dashed #444;
-      font-size: 0.8rem;
-      color: #888;
-      max-width: 100%;
-    }
-    
-    .message pre {
-      background: #0d1117;
+    .msg pre {
+      background: #000;
       padding: 0.5rem;
       border-radius: 4px;
       overflow-x: auto;
-      margin: 0.5rem 0;
+      margin: 0.25rem 0;
+      font-size: 0.85em;
     }
-    
-    .message code {
-      font-family: 'SF Mono', Consolas, monospace;
-      font-size: 0.9em;
-    }
-    
-    .input-area {
+    .input-row {
       display: flex;
       gap: 0.5rem;
       padding-top: 1rem;
-      border-top: 1px solid #0f3460;
+      border-top: 1px solid #333;
+      margin-top: 1rem;
     }
-    
-    #message-input {
+    input {
       flex: 1;
-      padding: 0.75rem 1rem;
-      border: 1px solid #0f3460;
-      border-radius: 8px;
-      background: #16213e;
+      padding: 0.6rem;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a1a;
       color: #eee;
       font-size: 1rem;
-      outline: none;
     }
-    
-    #message-input:focus {
-      border-color: #e94560;
-    }
-    
+    input:focus { outline: none; border-color: #555; }
     button {
-      padding: 0.75rem 1.5rem;
+      padding: 0.6rem 1rem;
       background: #e94560;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 1rem;
     }
-    
-    button:hover {
-      background: #d63850;
-    }
-    
-    button:disabled {
-      background: #444;
-      cursor: not-allowed;
-    }
-    
-    .sidebar {
-      width: 300px;
-      background: #16213e;
-      border-left: 1px solid #0f3460;
-      padding: 1rem;
-      overflow-y: auto;
-    }
-    
-    .sidebar h2 {
-      font-size: 0.9rem;
-      color: #888;
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .memory-block {
-      margin-bottom: 1rem;
-    }
-    
-    .memory-block h3 {
-      font-size: 0.85rem;
-      color: #e94560;
-      margin-bottom: 0.5rem;
-    }
-    
-    .memory-block textarea {
-      background: #0d1117;
-      padding: 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 150px;
-      overflow-y: auto;
-      width: 100%;
-      border: 1px solid #0f3460;
-      color: #eee;
-      resize: vertical;
-      min-height: 80px;
-      font-family: 'SF Mono', Consolas, monospace;
-    }
-    
-    .memory-block textarea:focus {
-      outline: none;
-      border-color: #e94560;
-    }
-    
-    .memory-block .save-btn {
-      margin-top: 0.25rem;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
-      background: #0f3460;
-      display: none;
-    }
-    
-    .memory-block .save-btn.visible {
-      display: inline-block;
-    }
-    
-    .actions {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #0f3460;
-    }
-    
-    .actions button {
-      width: 100%;
-      background: #0f3460;
-      font-size: 0.85rem;
-      padding: 0.5rem;
-    }
-    
-    .actions button:hover {
-      background: #1a4a7a;
-    }
-    
-    @media (max-width: 768px) {
-      .sidebar {
-        display: none;
-      }
-    }
+    button:disabled { background: #444; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🧠 Letta Chat</h1>
-    <span id="status" class="status">Connecting...</span>
-  </header>
-  
-  <main>
-    <div class="chat-container">
-      <div id="messages" class="messages"></div>
-      <div class="input-area">
-        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
-        <button id="send-btn">Send</button>
-      </div>
-    </div>
-    
-    <aside class="sidebar">
-      <h2>Agent Memory</h2>
-      <div id="memory-blocks"></div>
-      <div class="actions">
-        <button id="reset-btn">Reset Agent</button>
-      </div>
-    </aside>
-  </main>
-
+  <header><h1>Letta Chat</h1></header>
+  <div id="messages" class="messages"></div>
+  <div class="input-row">
+    <input type="text" id="input" placeholder="Message..." autocomplete="off">
+    <button id="send">Send</button>
+  </div>
   <script>
-    const messagesEl = document.getElementById('messages');
-    const inputEl = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
-    const statusEl = document.getElementById('status');
-    const memoryEl = document.getElementById('memory-blocks');
-    const resetBtn = document.getElementById('reset-btn');
-    
-    let isStreaming = false;
-    
-    // Check status on load
-    async function checkStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        if (data.agentId) {
-          statusEl.textContent = `Agent: ${data.agentId.slice(0, 12)}...`;
-          statusEl.className = 'status connected';
-        } else {
-          statusEl.textContent = 'New session';
-          statusEl.className = 'status';
-        }
-      } catch (err) {
-        statusEl.textContent = 'Disconnected';
-      }
+    const msgs = document.getElementById('messages');
+    const input = document.getElementById('input');
+    const btn = document.getElementById('send');
+    let busy = false;
+
+    function add(role, text) {
+      const d = document.createElement('div');
+      d.className = 'msg ' + role;
+      d.innerHTML = text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+      msgs.appendChild(d);
+      msgs.scrollTop = msgs.scrollHeight;
+      return d;
     }
-    
-    // Load memory
-    async function loadMemory() {
-      try {
-        const res = await fetch('/api/memory');
-        const data = await res.json();
-        memoryEl.innerHTML = data.blocks.map(block => `
-          <div class="memory-block">
-            <h3>${block.label}</h3>
-            <pre>${escapeHtml(block.value)}</pre>
-          </div>
-        `).join('');
-      } catch (err) {
-        memoryEl.innerHTML = '<p style="color:#888;font-size:0.8rem;">Could not load memory</p>';
-      }
-    }
-    
-    // Escape HTML
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-    
-    // Add message to chat
-    function addMessage(role, content) {
-      const div = document.createElement('div');
-      div.className = `message ${role}`;
-      div.innerHTML = formatMessage(content);
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      return div;
-    }
-    
-    // Format message (basic markdown)
-    function formatMessage(text) {
-      return escapeHtml(text)
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
-    }
-    
-    // Send message
-    async function sendMessage() {
-      const message = inputEl.value.trim();
-      if (!message || isStreaming) return;
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text || busy) return;
+      input.value = '';
+      busy = true;
+      btn.disabled = true;
       
-      inputEl.value = '';
-      isStreaming = true;
-      sendBtn.disabled = true;
-      
-      addMessage('user', message);
-      const assistantDiv = addMessage('assistant', '');
-      
+      add('user', text);
+      const el = add('assistant', '...');
+      let full = '';
+
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message }),
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({message: text})
         });
-        
         const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullResponse = '';
-        
+        const dec = new TextDecoder();
+        let buf = '';
+
         while (true) {
-          const { done, value } = await reader.read();
+          const {done, value} = await reader.read();
           if (done) break;
-          
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() || '';
-          
+          buf += dec.decode(value, {stream: true});
+          const lines = buf.split('\n\n');
+          buf = lines.pop();
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === 'text') {
-                fullResponse += data.content;
-                assistantDiv.innerHTML = formatMessage(fullResponse);
-                messagesEl.scrollTop = messagesEl.scrollHeight;
-              } else if (data.type === 'tool') {
-                addMessage('tool', `Using ${data.name}...`);
-              } else if (data.type === 'done') {
-                checkStatus();
-                loadMemory();
-              } else if (data.type === 'error') {
-                assistantDiv.innerHTML = `<span style="color:#e94560;">Error: ${escapeHtml(data.message)}</span>`;
-              }
+            if (!line.startsWith('data: ')) continue;
+            const d = JSON.parse(line.slice(6));
+            if (d.type === 'text') {
+              full += d.content;
+              el.innerHTML = full.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+              msgs.scrollTop = msgs.scrollHeight;
             }
           }
         }
-      } catch (err) {
-        assistantDiv.innerHTML = `<span style="color:#e94560;">Error: ${escapeHtml(err.message)}</span>`;
+      } catch(e) {
+        el.innerHTML = 'Error: ' + e.message;
       }
-      
-      isStreaming = false;
-      sendBtn.disabled = false;
-      inputEl.focus();
+      busy = false;
+      btn.disabled = false;
     }
-    
-    // Reset agent
-    async function resetAgent() {
-      if (!confirm('Reset agent? This will clear all memory.')) return;
-      
-      try {
-        await fetch('/api/reset', { method: 'POST' });
-        messagesEl.innerHTML = '';
-        checkStatus();
-        loadMemory();
-      } catch (err) {
-        alert('Failed to reset: ' + err.message);
-      }
-    }
-    
-    // Event listeners
-    sendBtn.addEventListener('click', sendMessage);
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-    resetBtn.addEventListener('click', resetAgent);
-    
-    // Init
-    checkStatus();
-    loadMemory();
-    inputEl.focus();
+
+    btn.onclick = send;
+    input.onkeydown = e => e.key === 'Enter' && send();
+    input.focus();
   </script>
 </body>
 </html>
