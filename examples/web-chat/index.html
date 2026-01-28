@@ -99,9 +99,11 @@
     <button id="send">Send</button>
   </div>
   <script>
+    console.log('Script loaded');
     const msgs = document.getElementById('messages');
     const input = document.getElementById('input');
     const btn = document.getElementById('send');
+    console.log('Elements:', msgs, input, btn);
     let busy = false;
 
     function add(role, text) {
@@ -173,9 +175,10 @@
       btn.disabled = false;
     }
 
-    btn.onclick = send;
-    input.onkeydown = e => e.key === 'Enter' && send();
+    btn.onclick = () => { console.log('btn clicked'); send(); };
+    input.onkeydown = e => { if (e.key === 'Enter') { console.log('enter pressed'); send(); } };
     input.focus();
+    console.log('Event handlers attached');
 
     // Memory toggle
     const memDiv = document.getElementById('memory');
