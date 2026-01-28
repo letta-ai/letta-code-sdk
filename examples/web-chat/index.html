@@ -21,8 +21,13 @@
       padding: 0.5rem 0 1rem;
       border-bottom: 1px solid #333;
       margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     header h1 { font-size: 1rem; color: #888; }
+    #memory h3 { color: #e94560; font-size: 0.85rem; margin: 0.5rem 0 0.25rem; }
+    #memory h3:first-child { margin-top: 0; }
     .messages {
       flex: 1;
       overflow-y: auto;
@@ -81,7 +86,13 @@
   </style>
 </head>
 <body>
-  <header><h1>Letta Chat</h1></header>
+  <header>
+    <h1>Letta Chat</h1>
+    <button id="mem-toggle" style="font-size:0.8rem;padding:0.3rem 0.6rem;background:#333;">Memory</button>
+  </header>
+  <div id="memory" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:0.75rem;margin-bottom:1rem;max-height:200px;overflow-y:auto;font-size:0.8rem;">
+    <div id="mem-content" style="white-space:pre-wrap;color:#888;">Loading...</div>
+  </div>
   <div id="messages" class="messages"></div>
   <div class="input-row">
     <input type="text" id="input" placeholder="Message..." autocomplete="off">
@@ -149,6 +160,35 @@
     btn.onclick = send;
     input.onkeydown = e => e.key === 'Enter' && send();
     input.focus();
+
+    // Memory toggle
+    const memDiv = document.getElementById('memory');
+    const memContent = document.getElementById('mem-content');
+    const memToggle = document.getElementById('mem-toggle');
+    let memVisible = false;
+
+    async function loadMemory() {
+      try {
+        const res = await fetch('/api/memory');
+        const data = await res.json();
+        if (!data.blocks || data.blocks.length === 0) {
+          memContent.innerHTML = '<em>No memory yet</em>';
+          return;
+        }
+        memContent.innerHTML = data.blocks
+          .filter(b => !['skills', 'loaded_skills'].includes(b.label))
+          .map(b => `<h3>${b.label}</h3>${(b.value || '').replace(/</g,'&lt;')}`)
+          .join('');
+      } catch(e) {
+        memContent.textContent = 'Failed to load';
+      }
+    }
+
+    memToggle.onclick = () => {
+      memVisible = !memVisible;
+      memDiv.style.display = memVisible ? 'block' : 'none';
+      if (memVisible) loadMemory();
+    };
   </script>
 </body>
 </html>
