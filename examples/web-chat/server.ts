@@ -201,9 +201,11 @@ Bun.serve({
       }
       
       try {
-        const blocks = await lettaClient.agents.blocks.list(state.agentId);
+        const response = await lettaClient.agents.blocks.list(state.agentId);
+        // Response is paginated - blocks are in .body or we iterate
+        const blockList = Array.isArray(response) ? response : (response.body || []);
         return Response.json({
-          blocks: blocks.map(b => ({
+          blocks: blockList.map((b: any) => ({
             label: b.label,
             value: b.value,
             description: b.description,
