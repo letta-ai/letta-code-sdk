@@ -18,6 +18,9 @@ import type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
+  AnyAgentTool,
+  AgentToolResultContent,
+  ExecuteExternalToolRequest,
 } from "./types.js";
 import { validateSessionOptions } from "./validation.js";
 
@@ -27,6 +30,7 @@ export class Session implements AsyncDisposable {
   private _sessionId: string | null = null;
   private _conversationId: string | null = null;
   private initialized = false;
+  private externalTools: Map<string, AnyAgentTool> = new Map();
 
   constructor(
     private options: SessionOptions & { agentId?: string } = {}
@@ -34,6 +38,13 @@ export class Session implements AsyncDisposable {
     // Validate options before creating transport
     validateSessionOptions(options);
     this.transport = new SubprocessTransport(options);
+    
+    // Store external tools in a map for quick lookup
+    if (options.tools) {
+      for (const tool of options.tools) {
+        this.externalTools.set(tool.name, tool);
+      }
+    }
   }
 
   /**
@@ -68,18 +79,71 @@ export class Session implements AsyncDisposable {
         this._conversationId = initMsg.conversation_id;
         this.initialized = true;
 
+        // Register external tools with CLI
+        if (this.externalTools.size > 0) {
+          await this.registerExternalTools();
+        }
+
+        // Include external tool names in the tools list
+        const allTools = [
+          ...initMsg.tools,
+          ...Array.from(this.externalTools.keys()),
+        ];
+
         return {
           type: "init",
           agentId: initMsg.agent_id,
           sessionId: initMsg.session_id,
           conversationId: initMsg.conversation_id,
           model: initMsg.model,
-          tools: initMsg.tools,
+          tools: allTools,
         };
       }
     }
 
     throw new Error("Failed to initialize session - no init message received");
+  }
+
+  /**
+   * Register external tools with the CLI
+   */
+  private async registerExternalTools(): Promise<void> {
+    const toolDefs = Array.from(this.externalTools.values()).map((tool) => ({
+      name: tool.name,
+      label: tool.label,
+      description: tool.description,
+      // Convert TypeBox schema to plain JSON Schema
+      parameters: this.schemaToJsonSchema(tool.parameters),
+    }));
+
+    await this.transport.write({
+      type: "control_request",
+      request_id: `register_tools_${Date.now()}`,
+      request: {
+        subtype: "register_external_tools",
+        tools: toolDefs,
+      },
+    });
+  }
+
+  /**
+   * Convert TypeBox schema to JSON Schema
+   */
+  private schemaToJsonSchema(schema: unknown): Record<string, unknown> {
+    // TypeBox schemas are already JSON Schema compatible
+    // Just need to extract the schema object
+    if (schema && typeof schema === "object") {
+      // TypeBox schemas have these JSON Schema properties
+      const s = schema as Record<string, unknown>;
+      return {
+        type: s.type,
+        properties: s.properties,
+        required: s.required,
+        additionalProperties: s.additionalProperties,
+        description: s.description,
+      };
+    }
+    return { type: "object" };
   }
 
   /**
@@ -101,13 +165,22 @@ export class Session implements AsyncDisposable {
    */
   async *stream(): AsyncGenerator<SDKMessage> {
     for await (const wireMsg of this.transport.messages()) {
-      // Handle CLI → SDK control requests (e.g., can_use_tool)
+      // Handle CLI → SDK control requests (e.g., can_use_tool, execute_external_tool)
       if (wireMsg.type === "control_request") {
         const controlReq = wireMsg as ControlRequest;
-        if (controlReq.request.subtype === "can_use_tool") {
+        const subtype = (controlReq.request as { subtype: string }).subtype;
+        
+        if (subtype === "can_use_tool") {
           await this.handleCanUseTool(
             controlReq.request_id,
             controlReq.request as CanUseToolControlRequest
+          );
+          continue;
+        }
+        if (subtype === "execute_external_tool") {
+          await this.handleExecuteExternalTool(
+            controlReq.request_id,
+            controlReq.request as unknown as ExecuteExternalToolRequest
           );
           continue;
         }
@@ -122,6 +195,61 @@ export class Session implements AsyncDisposable {
           break;
         }
       }
+    }
+  }
+
+  /**
+   * Handle execute_external_tool control request from CLI
+   */
+  private async handleExecuteExternalTool(
+    requestId: string,
+    req: ExecuteExternalToolRequest
+  ): Promise<void> {
+    const tool = this.externalTools.get(req.tool_name);
+    
+    if (!tool) {
+      // Tool not found - send error result
+      await this.transport.write({
+        type: "control_response",
+        response: {
+          subtype: "external_tool_result",
+          request_id: requestId,
+          tool_call_id: req.tool_call_id,
+          content: [{ type: "text", text: `Unknown external tool: ${req.tool_name}` }],
+          is_error: true,
+        },
+      });
+      return;
+    }
+
+    try {
+      // Execute the tool
+      const result = await tool.execute(req.tool_call_id, req.input);
+      
+      // Send success result
+      await this.transport.write({
+        type: "control_response",
+        response: {
+          subtype: "external_tool_result",
+          request_id: requestId,
+          tool_call_id: req.tool_call_id,
+          content: result.content,
+          is_error: false,
+        },
+      });
+    } catch (err) {
+      // Send error result
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      await this.transport.write({
+        type: "control_response",
+        response: {
+          subtype: "external_tool_result",
+          request_id: requestId,
+          tool_call_id: req.tool_call_id,
+          content: [{ type: "text", text: `Tool execution error: ${errorMessage}` }],
+          is_error: true,
+        },
+      });
     }
   }
 
