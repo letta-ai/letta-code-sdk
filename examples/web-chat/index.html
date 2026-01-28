@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Letta Chat</title>
+  <title>Letta Code Chat</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -87,7 +87,7 @@
 </head>
 <body>
   <header>
-    <h1>Letta Chat</h1>
+    <h1>Letta Code Chat</h1>
     <button id="mem-toggle" style="font-size:0.8rem;padding:0.3rem 0.6rem;background:#333;">Memory</button>
   </header>
   <div id="memory" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:0.75rem;margin-bottom:1rem;max-height:200px;overflow-y:auto;font-size:0.8rem;">
@@ -99,11 +99,9 @@
     <button id="send">Send</button>
   </div>
   <script>
-    console.log('Script loaded');
     const msgs = document.getElementById('messages');
     const input = document.getElementById('input');
     const btn = document.getElementById('send');
-    console.log('Elements:', msgs, input, btn);
     let busy = false;
 
     function add(role, text) {
@@ -127,13 +125,11 @@
       let full = '';
 
       try {
-        console.log('Sending:', text);
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({message: text})
         });
-        console.log('Response status:', res.status);
         
         if (!res.ok) {
           el.innerHTML = 'Error: ' + res.status;
@@ -148,7 +144,6 @@
 
         while (true) {
           const {done, value} = await reader.read();
-          console.log('Read:', done, value?.length);
           if (done) break;
           buf += dec.decode(value, {stream: true});
           const lines = buf.split('\n\n');
@@ -156,7 +151,6 @@
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const d = JSON.parse(line.slice(6));
-            console.log('Event:', d);
             if (d.type === 'text') {
               full += d.content;
               el.innerHTML = full.replace(/</g,'&lt;').replace(/\n/g,'<br>');
@@ -168,17 +162,15 @@
         }
         if (!full) el.innerHTML = '<em>(no response)</em>';
       } catch(e) {
-        console.error('Error:', e);
         el.innerHTML = 'Error: ' + e.message;
       }
       busy = false;
       btn.disabled = false;
     }
 
-    btn.onclick = () => { console.log('btn clicked'); send(); };
-    input.onkeydown = e => { if (e.key === 'Enter') { console.log('enter pressed'); send(); } };
+    btn.onclick = () => send();
+    input.onkeydown = e => { if (e.key === 'Enter') send(); };
     input.focus();
-    console.log('Event handlers attached');
 
     // Memory toggle
     const memDiv = document.getElementById('memory');
