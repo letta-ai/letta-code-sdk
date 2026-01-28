@@ -24,8 +24,8 @@ export type {
   CreateBlock,
 } from "@letta-ai/letta-code/protocol";
 
-// Import types for use in SessionOptions
-import type { CreateBlock } from "@letta-ai/letta-code/protocol";
+// Import types for use in this file
+import type { CreateBlock, CanUseToolResponse } from "@letta-ai/letta-code/protocol";
 
 // ═══════════════════════════════════════════════════════════════
 // SYSTEM PROMPT TYPES
@@ -86,20 +86,13 @@ export type MemoryPreset = "persona" | "human" | "project";
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Result of a canUseTool callback
- */
-export interface PermissionResult {
-  allow: boolean;
-  reason?: string;
-}
-
-/**
- * Callback for custom permission handling
+ * Callback for custom permission handling.
+ * Return CanUseToolResponse from @letta-ai/letta-code/protocol.
  */
 export type CanUseToolCallback = (
   toolName: string,
   toolInput: Record<string, unknown>,
-) => Promise<PermissionResult> | PermissionResult;
+) => Promise<CanUseToolResponse> | CanUseToolResponse;
 
 /**
  * Options for creating a session

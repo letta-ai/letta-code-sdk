@@ -37,8 +37,10 @@ export type {
   SDKResultMessage,
   SDKStreamEventMessage,
   PermissionMode,
-  PermissionResult,
   CanUseToolCallback,
+  CanUseToolResponse,
+  CanUseToolResponseAllow,
+  CanUseToolResponseDeny,
 } from "./types.js";
 
 export { Session } from "./session.js";
