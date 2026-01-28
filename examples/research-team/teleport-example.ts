@@ -67,7 +67,7 @@ async function main() {
   );
 
   let researcherResponse = '';
-  for await (const msg of researcher.receive()) {
+  for await (const msg of researcher.stream()) {
     if (msg.type === 'assistant') {
       researcherResponse += msg.content;
       process.stdout.write('.');
@@ -100,7 +100,7 @@ async function main() {
     );
 
     let analystResponse = '';
-    for await (const msg of analyst.receive()) {
+    for await (const msg of analyst.stream()) {
       if (msg.type === 'assistant') {
         analystResponse += msg.content;
         process.stdout.write('.');

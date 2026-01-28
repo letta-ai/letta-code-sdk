@@ -179,7 +179,7 @@ Find at least ${config.sourcesCount} high-quality sources, then confirm completi
   let success = false;
   let response = '';
   
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       process.stdout.write('.'); // Progress indicator
@@ -229,7 +229,7 @@ Update your memory blocks with any insights, then summarize your reflection.`;
   await session.send(prompt);
   
   let reflection = '';
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       reflection += msg.content;
     }

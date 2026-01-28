@@ -176,7 +176,7 @@ Be aggressive. Be dismissive. Show intellectual contempt if warranted. You've se
   await session.send(prompt);
   
   let response = '';
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       onOutput(msg.content);
@@ -215,7 +215,7 @@ Keep it to 2-3 brutal sentences.`;
   await session.send(prompt);
   
   let response = '';
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       onOutput(msg.content);

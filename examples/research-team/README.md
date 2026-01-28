@@ -241,7 +241,7 @@ app.post('/research', async (req, res) => {
   await researcher.send(`Research: ${query}`);
   
   let result = '';
-  for await (const msg of researcher.receive()) {
+  for await (const msg of researcher.stream()) {
     if (msg.type === 'assistant') result += msg.content;
   }
   

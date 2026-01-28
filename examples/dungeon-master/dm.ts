@@ -191,14 +191,17 @@ export async function chat(
   let response = '';
   const printer = onOutput || createStreamPrinter();
   
-  for await (const msg of session.receive()) {
+  let lastToolName = '';
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       printer(msg.content);
-    } else if (msg.type === 'tool_call') {
-      console.log(`\n${COLORS.system}[Using ${msg.name}...]${COLORS.reset}`);
-    } else if (msg.type === 'tool_result') {
-      console.log(`${COLORS.system}[Done]${COLORS.reset}\n`);
+      lastToolName = '';
+    } else if (msg.type === 'tool_call' && 'toolName' in msg) {
+      if (msg.toolName !== lastToolName) {
+        console.log(`\n${COLORS.system}[${msg.toolName}]${COLORS.reset}`);
+        lastToolName = msg.toolName;
+      }
     }
   }
   

@@ -172,7 +172,7 @@ Start by announcing your chosen topic, then research it, then present.`;
   await session.send(prompt);
   
   let response = '';
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       onOutput(msg.content);
@@ -208,7 +208,7 @@ Please respond to this question. Be direct, cite evidence where relevant, and de
   await session.send(prompt);
   
   let response = '';
-  for await (const msg of session.receive()) {
+  for await (const msg of session.stream()) {
     if (msg.type === 'assistant') {
       response += msg.content;
       onOutput(msg.content);
