@@ -145,13 +145,13 @@ export class Session implements AsyncDisposable {
           response = {
             behavior: "allow",
             updatedInput: result.updatedInput ?? null,
-            updatedPermissions: [],
+            updatedPermissions: [], // TODO: not implemented
           } satisfies CanUseToolResponseAllow;
         } else {
           response = {
             behavior: "deny",
             message: result.message ?? "Denied by canUseTool callback",
-            interrupt: false,
+            interrupt: false, // TODO: not wired up yet
           } satisfies CanUseToolResponseDeny;
         }
       } catch (err) {

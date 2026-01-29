@@ -30,21 +30,21 @@ import type { CreateBlock, CanUseToolResponse } from "@letta-ai/letta-code/proto
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Available system prompt presets (for autocomplete).
+ * Available system prompt presets.
  */
 export type SystemPromptPreset =
-  | "default"
-  | "letta-claude"
-  | "letta-codex"
-  | "letta-gemini"
-  | "claude"
-  | "codex"
-  | "gemini";
+  | "default" // Alias for letta-claude
+  | "letta-claude" // Full Letta Code prompt (Claude-optimized)
+  | "letta-codex" // Full Letta Code prompt (Codex-optimized)
+  | "letta-gemini" // Full Letta Code prompt (Gemini-optimized)
+  | "claude" // Basic Claude (no skills/memory instructions)
+  | "codex" // Basic Codex
+  | "gemini"; // Basic Gemini
 
 /**
  * System prompt preset configuration.
  */
-export interface SystemPromptPresetConfig {
+export interface SystemPromptPresetConfigSDK {
   type: "preset";
   preset: SystemPromptPreset;
   append?: string;
@@ -53,7 +53,7 @@ export interface SystemPromptPresetConfig {
 /**
  * System prompt configuration - either a raw string or preset config.
  */
-export type SystemPromptConfig = string | SystemPromptPresetConfig;
+export type SystemPromptConfig = string | SystemPromptPresetConfigSDK;
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY TYPES
