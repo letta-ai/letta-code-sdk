@@ -57,9 +57,21 @@ for await (const msg of session.stream()) {
 ```typescript
 import { createAgent, createSession, resumeSession } from '@letta-ai/letta-code-sdk';
 
-// Create agent via CLI - get ID immediately
+// Create agent with defaults
 const agentId = await createAgent();
 console.log(agentId); // "agent-xxx" - available immediately!
+
+// Create agent with custom configuration
+const customAgentId = await createAgent({
+  model: 'claude-opus-4',
+  systemPrompt: 'You are a Python expert specializing in FastAPI',
+  initBlocks: ['persona', 'project'],
+  blockValues: {
+    persona: 'You are a senior Python developer',
+    project: 'Building a REST API with FastAPI and PostgreSQL'
+  },
+  enableSleeptime: true
+});
 
 // Create session to interact
 const session = createSession(agentId);
@@ -107,6 +119,83 @@ const resumed = resumeSession(convId1);  // auto-detects conv-* prefix
 - **Session**: Connection to interact with an agent
 - **Conversation** (`conversationId`): A message thread within an agent
 
+## Configuration
+
+### System Prompts
+
+Choose from built-in presets or provide custom prompts:
+
+```typescript
+// Use a preset
+await createAgent({
+  systemPrompt: { type: 'preset', preset: 'letta-claude' }
+});
+
+// Custom prompt
+await createAgent({
+  systemPrompt: 'You are a helpful Python expert.'
+});
+
+// Preset with additional instructions
+await createAgent({
+  systemPrompt: {
+    type: 'preset',
+    preset: 'letta-claude',
+    append: 'Always respond in Spanish.'
+  }
+});
+```
+
+Available presets: `default`, `letta-claude`, `letta-codex`, `letta-gemini`, `claude`, `codex`, `gemini`
+
+### Memory Blocks
+
+Configure which memory blocks the agent uses:
+
+```typescript
+// Use default blocks (persona, human, project)
+await createAgent({});
+
+// Specific preset blocks only
+await createAgent({
+  initBlocks: ['persona', 'project']
+});
+
+// Custom blocks
+await createAgent({
+  memory: [
+    { label: 'context', value: 'API documentation for Acme Corp...' },
+    { label: 'rules', value: 'Always use TypeScript. Prefer functional patterns.' }
+  ]
+});
+
+// Set values for preset blocks
+await createAgent({
+  initBlocks: ['persona', 'project'],
+  blockValues: {
+    persona: 'You are a senior Python developer',
+    project: 'Building a CLI tool for Docker management'
+  }
+});
+```
+
+### Tool Configuration
+
+Control which tools are available:
+
+```typescript
+// Customize base tools
+await createAgent({
+  baseTools: ['memory', 'web_search']  // Only these server-side tools
+});
+
+// Filter tools at runtime
+const session = createSession(agentId, {
+  allowedTools: ['Read', 'Bash'],  // Only these client-side tools
+  permissionMode: 'bypassPermissions'
+});
+```
+
 ## API Reference
 
 ### Functions
@@ -134,12 +223,25 @@ const resumed = resumeSession(convId1);  // auto-detects conv-* prefix
 
 ```typescript
 interface CreateAgentOptions {
-  name?: string;
-  description?: string;
-  model?: string;
-  embedding?: string;
-  systemPrompt?: string;
-  memory?: MemoryItem[];
+  // Model configuration
+  model?: string;  // e.g., "claude-sonnet-4", "claude-opus-4"
+
+  // System prompt
+  systemPrompt?: string | SystemPromptPresetConfig;
+  systemPromptAppend?: string;  // Append additional instructions
+
+  // Memory configuration
+  memory?: MemoryItem[];  // Custom memory blocks
+  initBlocks?: string[];  // Which preset blocks to include (default: ["persona", "human", "project"])
+  blockValues?: Record<string, string>;  // Set values for blocks (e.g., { persona: "You are..." })
+
+  // Tool configuration
+  baseTools?: string[];  // Base tools to load (default: ["memory", "web_search", ...])
+
+  // Advanced options
+  enableSleeptime?: boolean;  // Enable sleeptime functionality
+  skillsDirectory?: string;   // Custom skills directory
+  cwd?: string;              // Working directory
 }
 ```
 
@@ -147,18 +249,41 @@ interface CreateAgentOptions {
 
 ```typescript
 interface SessionOptions {
-  model?: string;
-  newConversation?: boolean;
+  // Session targeting
+  agentId?: string;           // Resume specific agent
+  conversationId?: string;    // Resume specific conversation
+  newConversation?: boolean;  // Create new conversation on agent
+
+  // Model configuration
+  model?: string;             // Override model for this session
+
+  // System prompt (only for new agents)
   systemPrompt?: string | SystemPromptPresetConfig;
+  systemPromptAppend?: string;
+
+  // Memory configuration (only for new agents)
   memory?: MemoryItem[];
+  initBlocks?: string[];
+  blockValues?: Record<string, string>;
+
+  // Convenience props for common blocks
   persona?: string;
   human?: string;
   project?: string;
-  allowedTools?: string[];
+
+  // Tool configuration (only for new agents)
+  baseTools?: string[];
+  enableSleeptime?: boolean;
+  skillsDirectory?: string;
+
+  // Permission configuration
+  allowedTools?: string[];    // Filter which tools are available
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions';
+  canUseTool?: CanUseToolCallback;  // Custom permission callback
+
+  // Other options
   cwd?: string;
   maxTurns?: number;
-  canUseTool?: CanUseToolCallback;
 }
 ```
 
