@@ -8,6 +8,14 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import type { SessionOptions, WireMessage } from "./types.js";
 
+/**
+ * Internal options for SubprocessTransport
+ */
+interface TransportInternalOptions {
+  /** Exit after outputting init message (used by createAgent) */
+  createOnly?: boolean;
+}
+
 export class SubprocessTransport {
   private process: ChildProcess | null = null;
   private stdout: Interface | null = null;
@@ -17,7 +25,8 @@ export class SubprocessTransport {
   private agentId?: string;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: SessionOptions & { agentId?: string } = {},
+    private internalOptions: TransportInternalOptions = {}
   ) {}
 
   /**
@@ -185,7 +194,7 @@ export class SubprocessTransport {
         args.push("--new");
       }
       // --create-only: exit after init (for SDK createAgent)
-      if ((this.options as SessionOptions & { _createOnly?: boolean })._createOnly) {
+      if (this.internalOptions.createOnly) {
         args.push("--create-only");
       }
     }

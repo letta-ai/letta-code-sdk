@@ -82,7 +82,7 @@ export type MemoryItem =
 export type MemoryPreset = "persona" | "human" | "project";
 
 // ═══════════════════════════════════════════════════════════════
-// AGENT OPTIONS (for createAgent via API)
+// AGENT OPTIONS (for createAgent)
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -132,7 +132,7 @@ export interface CreateAgentOptions {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SESSION OPTIONS (for createSession/resumeSession via CLI)
+// SESSION OPTIONS (for createSession/resumeSession)
 // ═══════════════════════════════════════════════════════════════
 
 /**

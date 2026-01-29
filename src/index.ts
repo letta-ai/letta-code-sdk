@@ -76,10 +76,7 @@ export { Session } from "./session.js";
 export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
   // Create a session with --new-agent --create-only, read init message
   // CLI will exit cleanly after outputting init
-  const transport = new SubprocessTransport({
-    ...options,
-    _createOnly: true,  // Tells CLI to exit after init
-  } as any);
+  const transport = new SubprocessTransport(options, { createOnly: true });
   
   await transport.connect();
   
