@@ -5,29 +5,38 @@
  *
  * @example
  * ```typescript
- * import { createSession, prompt } from '@letta-ai/letta-code-sdk';
+ * import { createAgent, createSession, resumeSession, prompt } from '@letta-ai/letta-code-sdk';
  *
- * // One-shot
- * const result = await prompt('What is 2+2?', { model: 'claude-sonnet-4-20250514' });
+ * // Create agent (returns ID immediately)
+ * const agentId = await createAgent({ name: 'my-bot' });
  *
- * // Multi-turn session
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
+ * // Create session to interact
+ * const session = createSession(agentId);
  * await session.send('Hello!');
  * for await (const msg of session.stream()) {
  *   if (msg.type === 'assistant') console.log(msg.content);
  * }
  *
- * // Resume with persistent memory
- * await using resumed = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
+ * // Resume later
+ * const session2 = resumeSession(agentId);  // or resumeSession(conversationId)
+ *
+ * // One-shot
+ * const result = await prompt('What is 2+2?', { agentId });
  * ```
  */
 
 import { Session } from "./session.js";
-import type { SessionOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import { SubprocessTransport } from "./transport.js";
+import { getLruAgentId, getLruConversationId, updateLru } from "./lru.js";
+import type { AgentOptions, CreateAgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
+
+// Re-export LRU utilities
+export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
 
 // Re-export types
 export type {
-  SessionOptions,
+  AgentOptions,
+  CreateAgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -45,93 +54,153 @@ export type {
 
 export { Session } from "./session.js";
 
+// ═══════════════════════════════════════════════════════════════
+// AGENT MANAGEMENT (via CLI)
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * Create a new session with a fresh Letta agent.
+ * Create a new agent and return its ID immediately.
  *
- * The agent will have persistent memory that survives across sessions.
- * Use `resumeSession` to continue a conversation with an existing agent.
+ * Spawns the Letta CLI to create the agent with proper defaults
+ * (memory blocks, skills, etc.). Returns agentId without sending a message.
  *
  * @example
  * ```typescript
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
- * await session.send('My name is Alice');
- * for await (const msg of session.stream()) {
- *   console.log(msg);
- * }
- * console.log(`Agent ID: ${session.agentId}`); // Save this to resume later
+ * const agentId = await createAgent();
+ * console.log(agentId); // agent-xxx - available immediately
+ *
+ * // Now use it
+ * const session = createSession(agentId);
  * ```
  */
-export function createSession(options: SessionOptions = {}): Session {
+export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
+  // Create a session with --new-agent --create-only, read init message
+  // CLI will exit cleanly after outputting init
+  const transport = new SubprocessTransport({
+    ...options,
+    _createOnly: true,  // Tells CLI to exit after init
+  } as any);
+  
+  await transport.connect();
+  
+  // Read messages until we get the init message
+  let agentId: string | null = null;
+  let conversationId: string | null = null;
+  
+  for await (const msg of transport.messages()) {
+    if (msg.type === "system" && msg.subtype === "init") {
+      agentId = msg.agent_id;
+      conversationId = msg.conversation_id;
+      break;
+    }
+  }
+  
+  // Close the transport (don't send any messages)
+  transport.close();
+  
+  if (!agentId) {
+    throw new Error("Failed to create agent - no init message received");
+  }
+  
+  // Update LRU
+  updateLru(agentId, conversationId ?? "default");
+  
+  return agentId;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SESSION MANAGEMENT (via CLI)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Create a new session.
+ *
+ * If agentId is provided, creates a session on that agent.
+ * If no agentId, creates a new agent automatically (via CLI).
+ *
+ * @example
+ * ```typescript
+ * // With existing agent
+ * const session = createSession(agentId);
+ *
+ * // Or create new agent automatically
+ * const session = createSession();
+ * // session.agentId available after send()
+ * ```
+ */
+export function createSession(agentId?: string, options: AgentOptions = {}): Session {
+  if (agentId) {
+    return new Session({ ...options, agentId });
+  }
   return new Session(options);
 }
 
 /**
- * Resume an existing session with a Letta agent.
+ * Resume an existing session by agent ID or conversation ID.
  *
- * Unlike Claude Agent SDK (ephemeral sessions), Letta agents have persistent
- * memory. You can resume a conversation days later and the agent will remember.
+ * Auto-detects whether the ID is an agent ID (agent-*) or conversation ID (conv-*).
  *
  * @example
  * ```typescript
- * // Days later...
- * await using session = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
- * await session.send('What is my name?');
- * for await (const msg of session.stream()) {
- *   // Agent remembers: "Your name is Alice"
- * }
+ * // Resume agent (uses default conversation)
+ * const session = resumeSession('agent-xxx');
+ *
+ * // Resume specific conversation
+ * const session = resumeSession('conv-xxx');
+ *
+ * // Resume with options
+ * const session = resumeSession('agent-xxx', { newConversation: true });
  * ```
  */
-export function resumeSession(
-  agentId: string,
-  options: SessionOptions = {}
-): Session {
-  return new Session({ ...options, agentId });
+export function resumeSession(id: string, options: AgentOptions = {}): Session {
+  const isConversationId = id.startsWith("conv-");
+  const isAgentId = id.startsWith("agent-");
+  
+  if (!isConversationId && !isAgentId) {
+    throw new Error(`Invalid ID format: "${id}". Expected agent-* or conv-* prefix.`);
+  }
+  
+  if (isConversationId) {
+    if (options.newConversation) {
+      throw new Error("Cannot use newConversation with a conversation ID.");
+    }
+    return new Session({ ...options, conversationId: id });
+  }
+  
+  return new Session({ ...options, agentId: id });
 }
 
-/**
- * Resume an existing conversation.
- *
- * Conversations are threads within an agent. The agent is derived automatically
- * from the conversation ID. Use this to continue a specific conversation thread.
- *
- * @example
- * ```typescript
- * // Resume a specific conversation
- * await using session = resumeConversation(conversationId);
- * await session.send('Continue our discussion...');
- * for await (const msg of session.stream()) {
- *   console.log(msg);
- * }
- * ```
- */
-export function resumeConversation(
-  conversationId: string,
-  options: SessionOptions = {}
-): Session {
-  return new Session({ ...options, conversationId });
-}
+// ═══════════════════════════════════════════════════════════════
+// ONE-SHOT
+// ═══════════════════════════════════════════════════════════════
 
 /**
  * One-shot prompt convenience function.
  *
- * Creates a session, sends the prompt, collects the response, and closes.
- * Returns the final result message.
+ * Uses the specified agent, or LRU agent if available, or creates a new agent.
+ * Always creates a new conversation for isolation.
  *
  * @example
  * ```typescript
- * const result = await prompt('What is the capital of France?', {
- *   model: 'claude-sonnet-4-20250514'
- * });
- * if (result.success) {
- *   console.log(result.result);
- * }
+ * // With specific agent
+ * const result = await prompt('What is 2+2?', { agentId: 'agent-xxx' });
+ *
+ * // With LRU agent (or creates new)
+ * const result = await prompt('What is 2+2?');
  * ```
  */
 export async function prompt(
   message: string,
-  options: SessionOptions = {}
+  options: AgentOptions = {}
 ): Promise<SDKResultMessage> {
-  const session = createSession(options);
+  const agentId = options.agentId ?? getLruAgentId();
+  
+  let session: Session;
+  if (agentId) {
+    session = resumeSession(agentId, { ...options, newConversation: true });
+  } else {
+    session = createSession(undefined, { ...options, newConversation: true });
+  }
 
   try {
     await session.send(message);

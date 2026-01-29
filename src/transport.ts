@@ -6,7 +6,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
-import type { SessionOptions, WireMessage } from "./types.js";
+import type { AgentOptions, WireMessage } from "./types.js";
 
 export class SubprocessTransport {
   private process: ChildProcess | null = null;
@@ -17,7 +17,7 @@ export class SubprocessTransport {
   private agentId?: string;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: AgentOptions & { agentId?: string } = {}
   ) {}
 
   /**
@@ -154,7 +154,7 @@ export class SubprocessTransport {
     ];
 
     // Validate conversation + agent combinations
-    // (These require agentId context, so can't be in validateSessionOptions)
+    // (These require agentId context, so can't be in validateAgentOptions)
     
     // conversationId (non-default) cannot be used with agentId
     if (this.options.conversationId && 
@@ -166,27 +166,8 @@ export class SubprocessTransport {
       );
     }
 
-    // conversationId: "default" requires agentId
-    if (this.options.conversationId === "default" && !this.options.agentId) {
-      throw new Error(
-        "conversationId 'default' requires agentId. " +
-        "Use resumeSession(agentId, { defaultConversation: true }) instead."
-      );
-    }
-
-    // defaultConversation requires agentId
-    if (this.options.defaultConversation && !this.options.agentId) {
-      throw new Error(
-        "'defaultConversation' requires agentId. " +
-        "Use resumeSession(agentId, { defaultConversation: true })."
-      );
-    }
-
     // Conversation and agent handling
-    if (this.options.continue) {
-      // Resume last session (agent + conversation)
-      args.push("--continue");
-    } else if (this.options.conversationId) {
+    if (this.options.conversationId) {
       // Resume specific conversation (derives agent automatically)
       args.push("--conversation", this.options.conversationId);
     } else if (this.options.agentId) {
@@ -195,9 +176,6 @@ export class SubprocessTransport {
       if (this.options.newConversation) {
         // Create new conversation on this agent
         args.push("--new");
-      } else if (this.options.defaultConversation) {
-        // Use agent's default conversation explicitly
-        args.push("--default");
       }
     } else {
       // Create new agent
@@ -205,6 +183,10 @@ export class SubprocessTransport {
       if (this.options.newConversation) {
         // Also create new conversation (not default)
         args.push("--new");
+      }
+      // --create-only: exit after init (for SDK createAgent)
+      if ((this.options as AgentOptions & { _createOnly?: boolean })._createOnly) {
+        args.push("--create-only");
       }
     }
 

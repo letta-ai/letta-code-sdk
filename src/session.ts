@@ -6,8 +6,9 @@
  */
 
 import { SubprocessTransport } from "./transport.js";
+import { updateLru } from "./lru.js";
 import type {
-  SessionOptions,
+  AgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -19,7 +20,7 @@ import type {
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
 } from "./types.js";
-import { validateSessionOptions } from "./validation.js";
+import { validateAgentOptions } from "./validation.js";
 
 export class Session implements AsyncDisposable {
   private transport: SubprocessTransport;
@@ -29,10 +30,10 @@ export class Session implements AsyncDisposable {
   private initialized = false;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: AgentOptions & { agentId?: string } = {}
   ) {
     // Validate options before creating transport
-    validateSessionOptions(options);
+    validateAgentOptions(options);
     this.transport = new SubprocessTransport(options);
   }
 
@@ -67,6 +68,9 @@ export class Session implements AsyncDisposable {
         this._sessionId = initMsg.session_id;
         this._conversationId = initMsg.conversation_id;
         this.initialized = true;
+
+        // Update LRU tracking
+        updateLru(initMsg.agent_id, initMsg.conversation_id);
 
         return {
           type: "init",

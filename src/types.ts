@@ -82,7 +82,25 @@ export type MemoryItem =
 export type MemoryPreset = "persona" | "human" | "project";
 
 // ═══════════════════════════════════════════════════════════════
-// SESSION OPTIONS
+// AGENT OPTIONS (for createAgent via API)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Options for creating an agent via the CLI.
+ */
+export interface CreateAgentOptions {
+  /** Model to use (e.g., "claude-sonnet-4-20250514") */
+  model?: string;
+
+  /** System prompt configuration */
+  systemPrompt?: SystemPromptConfig;
+
+  /** Memory blocks */
+  memory?: MemoryItem[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SESSION OPTIONS (for createSession/resumeSession via CLI)
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -94,60 +112,34 @@ export type CanUseToolCallback = (
 ) => Promise<CanUseToolResponse> | CanUseToolResponse;
 
 /**
- * Options for creating a session
+ * Options for creating or resuming a session.
  */
-export interface SessionOptions {
+export interface AgentOptions {
+  /** Agent ID (set internally) */
+  agentId?: string;
+
+  /** Conversation ID (set internally) */
+  conversationId?: string;
+
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
-  /** Resume a specific conversation by ID (derives agent automatically) */
-  conversationId?: string;
-
-  /** Create a new conversation for concurrent sessions (requires agentId) */
+  /** Create a new conversation */
   newConversation?: boolean;
 
-  /** Resume the last session (agent + conversation from previous run) */
-  continue?: boolean;
-
-  /** Use agent's default conversation (requires agentId) */
-  defaultConversation?: boolean;
-
-  /**
-   * System prompt configuration.
-   * - string: Use as the complete system prompt
-   * - { type: 'preset', preset, append? }: Use a preset with optional appended text
-   *
-   * Available presets: 'default', 'letta-claude', 'letta-codex', 'letta-gemini',
-   *                    'claude', 'codex', 'gemini'
-   */
+  /** System prompt configuration */
   systemPrompt?: SystemPromptConfig;
 
-  /**
-   * Memory block configuration. Each item can be:
-   * - string: Preset block name ("project", "persona", "human")
-   * - CreateBlock: Custom block definition
-   * - { blockId: string }: Reference to existing shared block
-   *
-   * If not specified, defaults to ["persona", "human", "project"].
-   * Core blocks (skills, loaded_skills) are always included automatically.
-   */
+  /** Memory blocks */
   memory?: MemoryItem[];
 
-  /**
-   * Convenience: Set persona block value directly.
-   * Uses default block description/limit, just overrides the value.
-   * Error if persona not included in memory config.
-   */
+  /** Convenience: Set persona block value directly */
   persona?: string;
 
-  /**
-   * Convenience: Set human block value directly.
-   */
+  /** Convenience: Set human block value directly */
   human?: string;
 
-  /**
-   * Convenience: Set project block value directly.
-   */
+  /** Convenience: Set project block value directly */
   project?: string;
 
   /** List of allowed tool names */
@@ -162,7 +154,7 @@ export interface SessionOptions {
   /** Maximum conversation turns */
   maxTurns?: number;
 
-  /** Custom permission callback - called when tool needs approval */
+  /** Custom permission callback */
   canUseTool?: CanUseToolCallback;
 }
 

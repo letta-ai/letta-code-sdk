@@ -1,10 +1,10 @@
 /**
  * SDK Validation
  *
- * Validates SessionOptions before spawning the CLI.
+ * Validates AgentOptions before spawning the CLI.
  */
 
-import type { SessionOptions, MemoryItem, CreateBlock } from "./types.js";
+import type { AgentOptions, MemoryItem, CreateBlock } from "./types.js";
 
 /**
  * Extract block labels from memory items.
@@ -20,10 +20,10 @@ function getBlockLabels(memory: MemoryItem[]): string[] {
 }
 
 /**
- * Validate SessionOptions before spawning CLI.
+ * Validate AgentOptions before spawning CLI.
  * Throws an error if validation fails.
  */
-export function validateSessionOptions(options: SessionOptions): void {
+export function validateAgentOptions(options: AgentOptions): void {
   // If memory is specified, validate that convenience props match included blocks
   if (options.memory !== undefined) {
     const blockLabels = getBlockLabels(options.memory);
@@ -79,34 +79,4 @@ export function validateSessionOptions(options: SessionOptions): void {
         "Use conversationId to resume a specific conversation, or newConversation to create a new one."
     );
   }
-
-  if (options.continue && options.conversationId) {
-    throw new Error(
-      "Cannot use both 'continue' and 'conversationId'. " +
-        "Use continue to resume the last session, or conversationId to resume a specific conversation."
-    );
-  }
-
-  if (options.continue && options.newConversation) {
-    throw new Error(
-      "Cannot use both 'continue' and 'newConversation'. " +
-        "Use continue to resume the last session, or newConversation to create a new one."
-    );
-  }
-
-  if (options.defaultConversation && options.conversationId) {
-    throw new Error(
-      "Cannot use both 'defaultConversation' and 'conversationId'. " +
-        "Use defaultConversation with agentId, or conversationId alone."
-    );
-  }
-
-  if (options.defaultConversation && options.newConversation) {
-    throw new Error(
-      "Cannot use both 'defaultConversation' and 'newConversation'."
-    );
-  }
-
-  // Note: Validations that require agentId context happen in transport.ts buildArgs()
-  // because agentId is passed separately to resumeSession(), not in SessionOptions
 }
