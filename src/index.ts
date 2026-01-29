@@ -8,17 +8,17 @@
  * import { createAgent, createSession, resumeSession, prompt } from '@letta-ai/letta-code-sdk';
  *
  * // Create agent (returns ID immediately)
- * const agentId = await createAgent({ name: 'my-bot' });
+ * const agentId = await createAgent();
  *
  * // Create session to interact
- * const session = createSession(agentId);
+ * const session = createSession({ agentId });
  * await session.send('Hello!');
  * for await (const msg of session.stream()) {
  *   if (msg.type === 'assistant') console.log(msg.content);
  * }
  *
- * // Resume later
- * const session2 = resumeSession(agentId);  // or resumeSession(conversationId)
+ * // Resume later (continues last conversation)
+ * const session2 = resumeSession(agentId);
  *
  * // One-shot
  * const result = await prompt('What is 2+2?', { agentId });
@@ -70,7 +70,7 @@ export { Session } from "./session.js";
  * console.log(agentId); // agent-xxx - available immediately
  *
  * // Now use it
- * const session = createSession(agentId);
+ * const session = createSession({ agentId });
  * ```
  */
 export async function createAgent(options: AgentOptions = {}): Promise<string> {
@@ -112,26 +112,25 @@ export async function createAgent(options: AgentOptions = {}): Promise<string> {
 /**
  * Create a new session.
  *
- * If agentId is provided, connects to that agent's default conversation.
+ * If agentId is provided in options, connects to that agent's default conversation.
  * If no agentId, creates a new agent automatically (via CLI).
  *
  * @example
  * ```typescript
- * // With existing agent (uses default conversation)
- * const session = createSession(agentId);
- *
  * // Create new agent automatically
  * const session = createSession();
- * // session.agentId available after send()
  *
- * // Explicit new conversation
- * const session = createSession(agentId, { newConversation: true });
+ * // With options
+ * const session = createSession({ model: 'opus' });
+ *
+ * // With existing agent (uses default conversation)
+ * const session = createSession({ agentId });
+ *
+ * // Existing agent, new conversation
+ * const session = createSession({ agentId, newConversation: true });
  * ```
  */
-export function createSession(agentId?: string, options: SessionOptions = {}): Session {
-  if (agentId) {
-    return new Session({ ...options, agentId });
-  }
+export function createSession(options: SessionOptions = {}): Session {
   return new Session(options);
 }
 
@@ -215,9 +214,9 @@ export async function prompt(
   let session: Session;
   if (agentId) {
     // Use createSession to create new conversation (not resumeSession)
-    session = createSession(agentId, { ...options, newConversation: true });
+    session = createSession({ ...options, agentId, newConversation: true });
   } else {
-    session = createSession(undefined, { ...options, newConversation: true });
+    session = createSession({ ...options, newConversation: true });
   }
 
   try {

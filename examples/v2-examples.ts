@@ -86,7 +86,7 @@ async function main() {
 async function basicSession() {
   console.log('=== Basic Session ===\n');
 
-  await using session = createSession(undefined, {
+  await using session = createSession({
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -110,7 +110,7 @@ async function basicSession() {
 async function multiTurn() {
   console.log('=== Multi-Turn Conversation ===\n');
 
-  await using session = createSession(undefined, {
+  await using session = createSession({
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -169,7 +169,7 @@ async function testCreateAgent() {
   // Session 1: Connect to default conversation
   console.log('[Session 1] Connect to agent (default conversation)...');
   {
-    const session = createSession(agentId, {
+    const session = createSession({ agentId,
       permissionMode: 'bypassPermissions',
     });
 
@@ -225,7 +225,7 @@ async function testCreateAgent() {
   }
 
   console.log('Key insights:');
-  console.log('  - createSession(agentId) → default conversation (stable)');
+  console.log('  - createSession({ agentId }) → default conversation (stable)');
   console.log('  - resumeSession(agentId) → last conversation (continue work)');
   console.log('  - { newConversation: true } → fresh start\n');
 }
@@ -238,7 +238,7 @@ async function sessionResume() {
 
   // First session - establish a memory
   {
-    const session = createSession(undefined, {
+    const session = createSession({
       model: 'haiku',
       permissionMode: 'bypassPermissions',
     });
@@ -347,7 +347,7 @@ async function testOptions() {
 async function testMessageTypes() {
   console.log('=== Testing Message Types ===\n');
 
-  const session = createSession(undefined, {
+  const session = createSession({
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -392,7 +392,7 @@ async function testMessageTypes() {
 async function testSessionProperties() {
   console.log('=== Testing Session Properties ===\n');
 
-  const session = createSession(undefined, {
+  const session = createSession({
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -724,7 +724,7 @@ async function testConversations() {
   // Test 1: Create session and get conversationId (default)
   console.log('Test 1: Create session and get conversationId...');
   {
-    const session = createSession(undefined, {
+    const session = createSession({
       model: 'haiku',
       permissionMode: 'bypassPermissions',
     });
@@ -826,7 +826,7 @@ async function testConversations() {
   // Test 5a: defaultConversation with createSession
   console.log('\nTest 5a: defaultConversation with createSession...');
   {
-    await using session = createSession(agentId!, {
+    await using session = createSession({ agentId: agentId!,
       defaultConversation: true,
       permissionMode: 'bypassPermissions',
     });
@@ -891,7 +891,7 @@ async function testConversations() {
     // Note: This test may behave differently depending on local state
     // The --continue flag resumes the last used agent + conversation
     try {
-      await using session = createSession(undefined, {
+      await using session = createSession({
         continueLastConversation: true,
         permissionMode: 'bypassPermissions',
       });
