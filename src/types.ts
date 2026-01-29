@@ -88,7 +88,7 @@ export type MemoryPreset = "persona" | "human" | "project";
 /**
  * Options for creating an agent via the CLI.
  */
-export interface CreateAgentOptions {
+export interface CreateSessionOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
@@ -114,7 +114,7 @@ export type CanUseToolCallback = (
 /**
  * Options for creating or resuming a session.
  */
-export interface AgentOptions {
+export interface SessionOptions {
   /** Agent ID (set internally) */
   agentId?: string;
 

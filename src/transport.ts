@@ -6,7 +6,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
-import type { AgentOptions, WireMessage } from "./types.js";
+import type { SessionOptions, WireMessage } from "./types.js";
 
 export class SubprocessTransport {
   private process: ChildProcess | null = null;
@@ -17,7 +17,7 @@ export class SubprocessTransport {
   private agentId?: string;
 
   constructor(
-    private options: AgentOptions & { agentId?: string } = {}
+    private options: SessionOptions & { agentId?: string } = {}
   ) {}
 
   /**
@@ -154,7 +154,7 @@ export class SubprocessTransport {
     ];
 
     // Validate conversation + agent combinations
-    // (These require agentId context, so can't be in validateAgentOptions)
+    // (These require agentId context, so can't be in validateSessionOptions)
     
     // conversationId (non-default) cannot be used with agentId
     if (this.options.conversationId && 
@@ -185,7 +185,7 @@ export class SubprocessTransport {
         args.push("--new");
       }
       // --create-only: exit after init (for SDK createAgent)
-      if ((this.options as AgentOptions & { _createOnly?: boolean })._createOnly) {
+      if ((this.options as SessionOptions & { _createOnly?: boolean })._createOnly) {
         args.push("--create-only");
       }
     }

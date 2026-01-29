@@ -27,16 +27,16 @@
 
 import { Session } from "./session.js";
 import { SubprocessTransport } from "./transport.js";
-import { getLruAgentId, getLruConversationId, updateLru } from "./lru.js";
-import type { AgentOptions, CreateAgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import { getLruAgentId, updateLru } from "./lru.js";
+import type { SessionOptions, CreateSessionOptions, SDKMessage, SDKResultMessage } from "./types.js";
 
 // Re-export LRU utilities
 export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
 
 // Re-export types
 export type {
-  AgentOptions,
-  CreateAgentOptions,
+  SessionOptions,
+  CreateSessionOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -55,7 +55,7 @@ export type {
 export { Session } from "./session.js";
 
 // ═══════════════════════════════════════════════════════════════
-// AGENT MANAGEMENT (via CLI)
+// AGENT MANAGEMENT
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -73,7 +73,7 @@ export { Session } from "./session.js";
  * const session = createSession(agentId);
  * ```
  */
-export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
+export async function createAgent(options: CreateSessionOptions = {}): Promise<string> {
   // Create a session with --new-agent --create-only, read init message
   // CLI will exit cleanly after outputting init
   const transport = new SubprocessTransport({
@@ -109,7 +109,7 @@ export async function createAgent(options: CreateAgentOptions = {}): Promise<str
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SESSION MANAGEMENT (via CLI)
+// SESSION MANAGEMENT
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -128,7 +128,7 @@ export async function createAgent(options: CreateAgentOptions = {}): Promise<str
  * // session.agentId available after send()
  * ```
  */
-export function createSession(agentId?: string, options: AgentOptions = {}): Session {
+export function createSession(agentId?: string, options: SessionOptions = {}): Session {
   if (agentId) {
     return new Session({ ...options, agentId });
   }
@@ -152,7 +152,7 @@ export function createSession(agentId?: string, options: AgentOptions = {}): Ses
  * const session = resumeSession('agent-xxx', { newConversation: true });
  * ```
  */
-export function resumeSession(id: string, options: AgentOptions = {}): Session {
+export function resumeSession(id: string, options: SessionOptions = {}): Session {
   const isConversationId = id.startsWith("conv-");
   const isAgentId = id.startsWith("agent-");
   
@@ -191,7 +191,7 @@ export function resumeSession(id: string, options: AgentOptions = {}): Session {
  */
 export async function prompt(
   message: string,
-  options: AgentOptions = {}
+  options: SessionOptions = {}
 ): Promise<SDKResultMessage> {
   const agentId = options.agentId ?? getLruAgentId();
   

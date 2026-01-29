@@ -1,10 +1,10 @@
 /**
  * SDK Validation
  *
- * Validates AgentOptions before spawning the CLI.
+ * Validates SessionOptions before spawning the CLI.
  */
 
-import type { AgentOptions, MemoryItem, CreateBlock } from "./types.js";
+import type { SessionOptions, MemoryItem, CreateBlock } from "./types.js";
 
 /**
  * Extract block labels from memory items.
@@ -20,10 +20,10 @@ function getBlockLabels(memory: MemoryItem[]): string[] {
 }
 
 /**
- * Validate AgentOptions before spawning CLI.
+ * Validate SessionOptions before spawning CLI.
  * Throws an error if validation fails.
  */
-export function validateAgentOptions(options: AgentOptions): void {
+export function validateSessionOptions(options: SessionOptions): void {
   // If memory is specified, validate that convenience props match included blocks
   if (options.memory !== undefined) {
     const blockLabels = getBlockLabels(options.memory);

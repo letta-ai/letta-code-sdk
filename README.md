@@ -143,10 +143,10 @@ interface CreateAgentOptions {
 }
 ```
 
-### AgentOptions (for sessions)
+### SessionOptions
 
 ```typescript
-interface AgentOptions {
+interface SessionOptions {
   model?: string;
   newConversation?: boolean;
   systemPrompt?: string | SystemPromptPresetConfig;
