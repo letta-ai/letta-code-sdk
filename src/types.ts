@@ -19,13 +19,41 @@ export type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
-  SystemPromptPresetConfig,
-  SystemPromptConfig,
   CreateBlock,
 } from "@letta-ai/letta-code/protocol";
 
 // Import types for use in this file
-import type { CreateBlock, CanUseToolResponse, SystemPromptConfig } from "@letta-ai/letta-code/protocol";
+import type { CreateBlock, CanUseToolResponse } from "@letta-ai/letta-code/protocol";
+
+// ═══════════════════════════════════════════════════════════════
+// SYSTEM PROMPT TYPES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Available system prompt presets (for autocomplete).
+ */
+export type SystemPromptPreset =
+  | "default"
+  | "letta-claude"
+  | "letta-codex"
+  | "letta-gemini"
+  | "claude"
+  | "codex"
+  | "gemini";
+
+/**
+ * System prompt preset configuration.
+ */
+export interface SystemPromptPresetConfig {
+  type: "preset";
+  preset: SystemPromptPreset;
+  append?: string;
+}
+
+/**
+ * System prompt configuration - either a raw string or preset config.
+ */
+export type SystemPromptConfig = string | SystemPromptPresetConfig;
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY TYPES

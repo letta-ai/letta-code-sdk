@@ -140,8 +140,20 @@ export class Session implements AsyncDisposable {
 
     if (this.options.canUseTool) {
       try {
-        // Callback returns CanUseToolResponse directly
-        response = await this.options.canUseTool(req.tool_name, req.input);
+        const result = await this.options.canUseTool(req.tool_name, req.input);
+        if (result.behavior === "allow") {
+          response = {
+            behavior: "allow",
+            updatedInput: result.updatedInput ?? null,
+            updatedPermissions: [],
+          } satisfies CanUseToolResponseAllow;
+        } else {
+          response = {
+            behavior: "deny",
+            message: result.message ?? "Denied by canUseTool callback",
+            interrupt: false,
+          } satisfies CanUseToolResponseDeny;
+        }
       } catch (err) {
         response = {
           behavior: "deny",

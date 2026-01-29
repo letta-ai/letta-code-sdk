@@ -271,10 +271,12 @@ export class SubprocessTransport {
     }
 
     // Strategy 2: Try to resolve from node_modules
+    // Note: resolve the package main export (not /letta.js subpath) because
+    // the package.json "exports" field doesn't expose the subpath directly.
     try {
       const { createRequire } = await import("node:module");
       const require = createRequire(import.meta.url);
-      const resolved = require.resolve("@letta-ai/letta-code/letta.js");
+      const resolved = require.resolve("@letta-ai/letta-code");
       if (existsSync(resolved)) {
         return resolved;
       }

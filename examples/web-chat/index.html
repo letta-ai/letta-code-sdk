@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Letta Code Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    header {
+      padding: 0.5rem 0 1rem;
+      border-bottom: 1px solid #333;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 1rem; color: #888; }
+    #memory h3 { color: #e94560; font-size: 0.85rem; margin: 0.5rem 0 0.25rem; }
+    #memory h3:first-child { margin-top: 0; }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .msg {
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      max-width: 85%;
+    }
+    .msg.user {
+      background: #333;
+      align-self: flex-end;
+    }
+    .msg.assistant {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      align-self: flex-start;
+    }
+    .msg pre {
+      background: #000;
+      padding: 0.5rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 0.25rem 0;
+      font-size: 0.85em;
+    }
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #333;
+      margin-top: 1rem;
+    }
+    input {
+      flex: 1;
+      padding: 0.6rem;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a1a;
+      color: #eee;
+      font-size: 1rem;
+    }
+    input:focus { outline: none; border-color: #555; }
+    button {
+      padding: 0.6rem 1rem;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:disabled { background: #444; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Letta Code Chat</h1>
+    <button id="mem-toggle" style="font-size:0.8rem;padding:0.3rem 0.6rem;background:#333;">Memory</button>
+  </header>
+  <div id="memory" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:0.75rem;margin-bottom:1rem;max-height:200px;overflow-y:auto;font-size:0.8rem;">
+    <div id="mem-content" style="white-space:pre-wrap;color:#888;">Loading...</div>
+  </div>
+  <div id="messages" class="messages"></div>
+  <div class="input-row">
+    <input type="text" id="input" placeholder="Message..." autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+  <script>
+    const msgs = document.getElementById('messages');
+    const input = document.getElementById('input');
+    const btn = document.getElementById('send');
+    let busy = false;
+
+    function add(role, text) {
+      const d = document.createElement('div');
+      d.className = 'msg ' + role;
+      d.innerHTML = text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+      msgs.appendChild(d);
+      msgs.scrollTop = msgs.scrollHeight;
+      return d;
+    }
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text || busy) return;
+      input.value = '';
+      busy = true;
+      btn.disabled = true;
+      
+      add('user', text);
+      const el = add('assistant', '...');
+      let full = '';
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({message: text})
+        });
+        
+        if (!res.ok) {
+          el.innerHTML = 'Error: ' + res.status;
+          busy = false;
+          btn.disabled = false;
+          return;
+        }
+        
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, {stream: true});
+          const lines = buf.split('\n\n');
+          buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const d = JSON.parse(line.slice(6));
+            if (d.type === 'text') {
+              full += d.content;
+              el.innerHTML = full.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+              msgs.scrollTop = msgs.scrollHeight;
+            } else if (d.type === 'error') {
+              el.innerHTML = 'Error: ' + d.message;
+            }
+          }
+        }
+        if (!full) el.innerHTML = '<em>(no response)</em>';
+      } catch(e) {
+        el.innerHTML = 'Error: ' + e.message;
+      }
+      busy = false;
+      btn.disabled = false;
+    }
+
+    btn.onclick = () => send();
+    input.onkeydown = e => { if (e.key === 'Enter') send(); };
+    input.focus();
+
+    // Memory toggle
+    const memDiv = document.getElementById('memory');
+    const memContent = document.getElementById('mem-content');
+    const memToggle = document.getElementById('mem-toggle');
+    let memVisible = false;
+
+    async function loadMemory() {
+      try {
+        const res = await fetch('/api/memory');
+        const data = await res.json();
+        if (!data.blocks || data.blocks.length === 0) {
+          memContent.innerHTML = '<em>No memory yet</em>';
+          return;
+        }
+        memContent.innerHTML = data.blocks
+          .filter(b => !['skills', 'loaded_skills'].includes(b.label))
+          .map(b => `<h3>${b.label}</h3>${(b.value || '').replace(/</g,'&lt;')}`)
+          .join('');
+      } catch(e) {
+        memContent.textContent = 'Failed to load';
+      }
+    }
+
+    memToggle.onclick = () => {
+      memVisible = !memVisible;
+      memDiv.style.display = memVisible ? 'block' : 'none';
+      if (memVisible) loadMemory();
+    };
+  </script>
+</body>
+</html>
