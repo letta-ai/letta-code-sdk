@@ -5,7 +5,7 @@
  * Protocol types are imported from @letta-ai/letta-code/protocol.
  */
 
-// Re-export protocol types for internal use
+// Re-export protocol types
 export type {
   WireMessage,
   SystemInitMessage,
@@ -19,43 +19,13 @@ export type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
-  // Configuration types
   SystemPromptPresetConfig,
+  SystemPromptConfig,
   CreateBlock,
 } from "@letta-ai/letta-code/protocol";
 
-// Import types for use in SessionOptions
-import type { CreateBlock } from "@letta-ai/letta-code/protocol";
-
-// ═══════════════════════════════════════════════════════════════
-// SYSTEM PROMPT TYPES
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Available system prompt presets.
- */
-export type SystemPromptPreset =
-  | "default" // Alias for letta-claude
-  | "letta-claude" // Full Letta Code prompt (Claude-optimized)
-  | "letta-codex" // Full Letta Code prompt (Codex-optimized)
-  | "letta-gemini" // Full Letta Code prompt (Gemini-optimized)
-  | "claude" // Basic Claude (no skills/memory instructions)
-  | "codex" // Basic Codex
-  | "gemini"; // Basic Gemini
-
-/**
- * System prompt preset configuration.
- */
-export interface SystemPromptPresetConfigSDK {
-  type: "preset";
-  preset: SystemPromptPreset;
-  append?: string;
-}
-
-/**
- * System prompt configuration - either a raw string or preset config.
- */
-export type SystemPromptConfig = string | SystemPromptPresetConfigSDK;
+// Import types for use in this file
+import type { CreateBlock, CanUseToolResponse, SystemPromptConfig } from "@letta-ai/letta-code/protocol";
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY TYPES
@@ -82,51 +52,47 @@ export type MemoryItem =
 export type MemoryPreset = "persona" | "human" | "project";
 
 // ═══════════════════════════════════════════════════════════════
-// SESSION OPTIONS
+// AGENT OPTIONS
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Result of a canUseTool callback
- */
-export interface PermissionResult {
-  allow: boolean;
-  reason?: string;
-}
-
-/**
- * Callback for custom permission handling
+ * Callback for custom permission handling.
+ * Return CanUseToolResponse from @letta-ai/letta-code/protocol.
  */
 export type CanUseToolCallback = (
   toolName: string,
   toolInput: Record<string, unknown>,
-) => Promise<PermissionResult> | PermissionResult;
+) => Promise<CanUseToolResponse> | CanUseToolResponse;
 
 /**
- * Options for creating a session
+ * Options for creating or resuming an agent
  */
-export interface SessionOptions {
+export interface AgentOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
-  /** Resume a specific conversation by ID (derives agent automatically) */
+  /** 
+   * Agent ID - set internally by resumeAgent when an agent ID is passed.
+   * @internal
+   */
+  agentId?: string;
+
+  /** 
+   * Conversation ID - set internally by resumeAgent when a conversation ID is passed.
+   * @internal
+   */
   conversationId?: string;
 
-  /** Create a new conversation for concurrent sessions (requires agentId) */
+  /** Create a new conversation (instead of using default) */
   newConversation?: boolean;
 
-  /** Resume the last session (agent + conversation from previous run) */
-  continue?: boolean;
-
-  /** Use agent's default conversation (requires agentId) */
-  defaultConversation?: boolean;
+  /** Use the last conversation for this agent (LRU) instead of default */
+  lastConversation?: boolean;
 
   /**
    * System prompt configuration.
    * - string: Use as the complete system prompt
    * - { type: 'preset', preset, append? }: Use a preset with optional appended text
-   *
-   * Available presets: 'default', 'letta-claude', 'letta-codex', 'letta-gemini',
-   *                    'claude', 'codex', 'gemini'
    */
   systemPrompt?: SystemPromptConfig;
 
@@ -141,21 +107,13 @@ export interface SessionOptions {
    */
   memory?: MemoryItem[];
 
-  /**
-   * Convenience: Set persona block value directly.
-   * Uses default block description/limit, just overrides the value.
-   * Error if persona not included in memory config.
-   */
+  /** Convenience: Set persona block value directly. */
   persona?: string;
 
-  /**
-   * Convenience: Set human block value directly.
-   */
+  /** Convenience: Set human block value directly. */
   human?: string;
 
-  /**
-   * Convenience: Set project block value directly.
-   */
+  /** Convenience: Set project block value directly. */
   project?: string;
 
   /** List of allowed tool names */
@@ -180,9 +138,6 @@ export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions";
 // SDK MESSAGE TYPES
 // ═══════════════════════════════════════════════════════════════
 
-/**
- * SDK message types - clean wrappers around wire types
- */
 export interface SDKInitMessage {
   type: "init";
   agentId: string;
@@ -233,7 +188,7 @@ export interface SDKResultMessage {
 export interface SDKStreamEventMessage {
   type: "stream_event";
   event: {
-    type: string;  // "content_block_start" | "content_block_delta" | "content_block_stop"
+    type: string;
     index?: number;
     delta?: { type?: string; text?: string; reasoning?: string };
     content_block?: { type?: string; text?: string };
@@ -241,7 +196,6 @@ export interface SDKStreamEventMessage {
   uuid: string;
 }
 
-/** Union of all SDK message types */
 export type SDKMessage =
   | SDKInitMessage
   | SDKAssistantMessage

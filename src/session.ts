@@ -6,8 +6,9 @@
  */
 
 import { SubprocessTransport } from "./transport.js";
+import { updateLru } from "./lru.js";
 import type {
-  SessionOptions,
+  AgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -29,7 +30,7 @@ export class Session implements AsyncDisposable {
   private initialized = false;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: AgentOptions = {}
   ) {
     // Validate options before creating transport
     validateSessionOptions(options);
@@ -67,6 +68,9 @@ export class Session implements AsyncDisposable {
         this._sessionId = initMsg.session_id;
         this._conversationId = initMsg.conversation_id;
         this.initialized = true;
+
+        // Update LRU tracking
+        updateLru(initMsg.agent_id, initMsg.conversation_id);
 
         return {
           type: "init",
@@ -136,20 +140,8 @@ export class Session implements AsyncDisposable {
 
     if (this.options.canUseTool) {
       try {
-        const result = await this.options.canUseTool(req.tool_name, req.input);
-        if (result.allow) {
-          response = {
-            behavior: "allow",
-            updatedInput: null, // TODO: not supported
-            updatedPermissions: [], // TODO: not implemented
-          } satisfies CanUseToolResponseAllow;
-        } else {
-          response = {
-            behavior: "deny",
-            message: result.reason ?? "Denied by canUseTool callback",
-            interrupt: false, // TODO: not wired up yet
-          } satisfies CanUseToolResponseDeny;
-        }
+        // Callback returns CanUseToolResponse directly
+        response = await this.options.canUseTool(req.tool_name, req.input);
       } catch (err) {
         response = {
           behavior: "deny",

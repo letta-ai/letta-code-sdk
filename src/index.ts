@@ -5,29 +5,36 @@
  *
  * @example
  * ```typescript
- * import { createSession, prompt } from '@letta-ai/letta-code-sdk';
+ * import { createAgent, resumeAgent, prompt } from '@letta-ai/letta-code-sdk';
  *
- * // One-shot
+ * // One-shot (uses LRU agent or creates new)
  * const result = await prompt('What is 2+2?', { model: 'claude-sonnet-4-20250514' });
  *
- * // Multi-turn session
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
- * await session.send('Hello!');
- * for await (const msg of session.stream()) {
+ * // Create new agent
+ * await using agent = createAgent({ model: 'claude-sonnet-4-20250514' });
+ * await agent.send('Hello!');
+ * for await (const msg of agent.stream()) {
  *   if (msg.type === 'assistant') console.log(msg.content);
  * }
  *
- * // Resume with persistent memory
- * await using resumed = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
+ * // Resume agent (auto-detects agent-* vs conv-* prefix)
+ * await using resumed = resumeAgent(agentId);  // or resumeAgent(conversationId)
  * ```
  */
 
 import { Session } from "./session.js";
-import type { SessionOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
+import type { AgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
 
-// Re-export types
+// Re-export LRU utilities
+export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
+
+// ═══════════════════════════════════════════════════════════════
+// RE-EXPORTS
+// ═══════════════════════════════════════════════════════════════
+
 export type {
-  SessionOptions,
+  AgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -37,83 +44,159 @@ export type {
   SDKResultMessage,
   SDKStreamEventMessage,
   PermissionMode,
-  PermissionResult,
   CanUseToolCallback,
+  CanUseToolResponse,
+  CanUseToolResponseAllow,
+  CanUseToolResponseDeny,
 } from "./types.js";
 
 export { Session } from "./session.js";
+export { Session as Agent } from "./session.js";
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATION
+// ═══════════════════════════════════════════════════════════════
+
+function validateCreateAgentOptions(options: AgentOptions): void {
+  if (options.agentId) {
+    throw new Error("createAgent() does not accept agentId. Use resumeAgent(agentId) instead.");
+  }
+  if (options.conversationId) {
+    throw new Error("createAgent() does not accept conversationId. Use resumeAgent(conversationId) instead.");
+  }
+  if (options.lastConversation) {
+    throw new Error("createAgent() does not accept lastConversation. New agents have no LRU conversation.");
+  }
+}
+
+function validateResumeAgentOptions(id: string | undefined, options: AgentOptions): void {
+  const isConversationId = id?.startsWith("conv-");
+  
+  if (isConversationId) {
+    if (options.newConversation) {
+      throw new Error("Cannot use newConversation with a conversation ID. The conversation is already specified.");
+    }
+    if (options.lastConversation) {
+      throw new Error("Cannot use lastConversation with a conversation ID. The conversation is already specified.");
+    }
+  }
+  
+  if (options.newConversation && options.lastConversation) {
+    throw new Error("Cannot use both newConversation and lastConversation. Choose one.");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORE API
+// ═══════════════════════════════════════════════════════════════
 
 /**
- * Create a new session with a fresh Letta agent.
+ * Create a new agent with persistent memory.
  *
- * The agent will have persistent memory that survives across sessions.
- * Use `resumeSession` to continue a conversation with an existing agent.
+ * | Call | Agent | Conversation |
+ * |------|-------|--------------|
+ * | `createAgent()` | New | Default |
+ * | `createAgent({ newConversation: true })` | New | New |
  *
  * @example
  * ```typescript
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
- * await session.send('My name is Alice');
- * for await (const msg of session.stream()) {
+ * await using agent = createAgent({ model: 'claude-sonnet-4-20250514' });
+ * await agent.send('My name is Alice');
+ * for await (const msg of agent.stream()) {
  *   console.log(msg);
  * }
- * console.log(`Agent ID: ${session.agentId}`); // Save this to resume later
+ * console.log(`Agent ID: ${agent.agentId}`); // Save this to resume later
  * ```
  */
-export function createSession(options: SessionOptions = {}): Session {
+export function createAgent(options: AgentOptions = {}): Session {
+  validateCreateAgentOptions(options);
   return new Session(options);
 }
 
 /**
- * Resume an existing session with a Letta agent.
+ * Resume an existing agent or conversation.
  *
- * Unlike Claude Agent SDK (ephemeral sessions), Letta agents have persistent
- * memory. You can resume a conversation days later and the agent will remember.
+ * Auto-detects whether the ID is an agent ID (agent-*) or conversation ID (conv-*).
  *
- * @example
- * ```typescript
- * // Days later...
- * await using session = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
- * await session.send('What is my name?');
- * for await (const msg of session.stream()) {
- *   // Agent remembers: "Your name is Alice"
- * }
- * ```
- */
-export function resumeSession(
-  agentId: string,
-  options: SessionOptions = {}
-): Session {
-  return new Session({ ...options, agentId });
-}
-
-/**
- * Resume an existing conversation.
- *
- * Conversations are threads within an agent. The agent is derived automatically
- * from the conversation ID. Use this to continue a specific conversation thread.
+ * | Call | Agent | Conversation |
+ * |------|-------|--------------|
+ * | `resumeAgent()` | LRU | LRU or Default |
+ * | `resumeAgent({ newConversation: true })` | LRU | New |
+ * | `resumeAgent(agentId)` | Specified | Default |
+ * | `resumeAgent(agentId, { newConversation: true })` | Specified | New |
+ * | `resumeAgent(agentId, { lastConversation: true })` | Specified | LRU or Default |
+ * | `resumeAgent(conversationId)` | Derived | Specified |
  *
  * @example
  * ```typescript
- * // Resume a specific conversation
- * await using session = resumeConversation(conversationId);
- * await session.send('Continue our discussion...');
- * for await (const msg of session.stream()) {
- *   console.log(msg);
- * }
+ * // Resume with LRU agent
+ * await using agent = resumeAgent();
+ *
+ * // Resume specific agent
+ * await using agent = resumeAgent('agent-xxx');
+ *
+ * // Resume specific conversation
+ * await using agent = resumeAgent('conv-xxx');
+ *
+ * // Resume agent with new conversation
+ * await using agent = resumeAgent('agent-xxx', { newConversation: true });
  * ```
  */
-export function resumeConversation(
-  conversationId: string,
-  options: SessionOptions = {}
+export function resumeAgent(
+  id?: string,
+  options: AgentOptions = {}
 ): Session {
-  return new Session({ ...options, conversationId });
+  validateResumeAgentOptions(id, options);
+  
+  const isConversationId = id?.startsWith("conv-");
+  const isAgentId = id?.startsWith("agent-");
+  
+  if (id && !isConversationId && !isAgentId) {
+    throw new Error(`Invalid ID format: "${id}". Expected agent-* or conv-* prefix.`);
+  }
+  
+  const sessionOptions: AgentOptions = { ...options };
+  
+  if (isConversationId) {
+    sessionOptions.conversationId = id;
+  } else if (isAgentId) {
+    sessionOptions.agentId = id;
+  } else if (!id) {
+    // No ID - use LRU
+    const lruAgent = getLruAgentId();
+    const lruConv = getLruConversationId();
+    if (lruAgent) {
+      sessionOptions.agentId = lruAgent;
+      if (lruConv && !options.newConversation) {
+        sessionOptions.conversationId = lruConv;
+      }
+    } else {
+      throw new Error("No LRU agent available. Use createAgent() to create one first.");
+    }
+  }
+  
+  // Handle lastConversation option
+  if (options.lastConversation && sessionOptions.agentId) {
+    const lruAgent = getLruAgentId();
+    const lruConv = getLruConversationId();
+    if (lruAgent === sessionOptions.agentId && lruConv) {
+      sessionOptions.conversationId = lruConv;
+    }
+  }
+  
+  return new Session(sessionOptions);
 }
 
 /**
  * One-shot prompt convenience function.
  *
- * Creates a session, sends the prompt, collects the response, and closes.
- * Returns the final result message.
+ * Uses LRU agent if available, otherwise creates a new agent.
+ * Always creates a new conversation for isolation.
+ *
+ * | Call | Agent | Conversation |
+ * |------|-------|--------------|
+ * | `prompt(msg)` | LRU or New | New |
+ * | `prompt(msg, { agentId: '...' })` | Specified | New |
  *
  * @example
  * ```typescript
@@ -127,9 +210,16 @@ export function resumeConversation(
  */
 export async function prompt(
   message: string,
-  options: SessionOptions = {}
+  options: AgentOptions = {}
 ): Promise<SDKResultMessage> {
-  const session = createSession(options);
+  const agentId = options.agentId ?? getLruAgentId();
+  
+  let session: Session;
+  if (agentId) {
+    session = resumeAgent(agentId, { ...options, newConversation: true });
+  } else {
+    session = createAgent({ ...options, newConversation: true });
+  }
 
   try {
     await session.send(message);

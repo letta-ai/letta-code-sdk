@@ -37,17 +37,17 @@ console.log(result.result); // "hello"
 ### Multi-turn session
 
 ```typescript
-import { createSession } from '@letta-ai/letta-code-sdk';
+import { createAgent } from '@letta-ai/letta-code-sdk';
 
-await using session = createSession();
+await using agent = createAgent();
 
-await session.send('What is 5 + 3?');
-for await (const msg of session.stream()) {
+await agent.send('What is 5 + 3?');
+for await (const msg of agent.stream()) {
   if (msg.type === 'assistant') console.log(msg.content);
 }
 
-await session.send('Multiply that by 2');
-for await (const msg of session.stream()) {
+await agent.send('Multiply that by 2');
+for await (const msg of agent.stream()) {
   if (msg.type === 'assistant') console.log(msg.content);
 }
 ```
@@ -57,64 +57,57 @@ for await (const msg of session.stream()) {
 Agents persist across sessions and remember context:
 
 ```typescript
-import { createSession, resumeSession } from '@letta-ai/letta-code-sdk';
+import { createAgent, resumeAgent } from '@letta-ai/letta-code-sdk';
 
 // First session
-const session1 = createSession();
-await session1.send('Remember: the secret word is "banana"');
-for await (const msg of session1.stream()) { /* ... */ }
-const agentId = session1.agentId;
-session1.close();
+const agent1 = createAgent();
+await agent1.send('Remember: the secret word is "banana"');
+for await (const msg of agent1.stream()) { /* ... */ }
+const agentId = agent1.agentId;
+agent1.close();
 
 // Later...
-await using session2 = resumeSession(agentId);
-await session2.send('What is the secret word?');
-for await (const msg of session2.stream()) {
+await using agent2 = resumeAgent(agentId);
+await agent2.send('What is the secret word?');
+for await (const msg of agent2.stream()) {
   if (msg.type === 'assistant') console.log(msg.content); // "banana"
 }
 ```
 
-### Multi-threaded Conversations
+### Multi-threaded conversations
 
-Run multiple concurrent conversations with the same agent. Each conversation has its own message history while sharing the agent's persistent memory.
+Run multiple concurrent conversations with the same agent:
 
 ```typescript
-import { createSession, resumeSession, resumeConversation } from '@letta-ai/letta-code-sdk';
+import { createAgent, resumeAgent } from '@letta-ai/letta-code-sdk';
 
 // Create an agent
-const session = createSession();
-await session.send('Hello!');
-for await (const msg of session.stream()) { /* ... */ }
-const agentId = session.agentId;
-const conversationId = session.conversationId; // Save this!
-session.close();
+const agent = createAgent();
+await agent.send('Hello!');
+for await (const msg of agent.stream()) { /* ... */ }
+const agentId = agent.agentId;
+const conversationId = agent.conversationId;
+agent.close();
 
-// Resume a specific conversation
-await using session2 = resumeConversation(conversationId);
-await session2.send('Continue our discussion...');
-for await (const msg of session2.stream()) { /* ... */ }
+// Resume a specific conversation (auto-detects conv-* prefix)
+await using agent2 = resumeAgent(conversationId);
+await agent2.send('Continue our discussion...');
+for await (const msg of agent2.stream()) { /* ... */ }
 
 // Create a NEW conversation on the same agent
-await using session3 = resumeSession(agentId, { newConversation: true });
-await session3.send('Start a fresh thread...');
-// session3.conversationId is different from conversationId
+await using agent3 = resumeAgent(agentId, { newConversation: true });
+await agent3.send('Start a fresh thread...');
+// agent3.conversationId is different from conversationId
 
-// Resume with agent's default conversation
-await using session4 = resumeSession(agentId, { defaultConversation: true });
-
-// Resume last used session (agent + conversation)
-await using session5 = createSession({ continue: true });
-
-// Create new agent with a new (non-default) conversation
-await using session6 = createSession({ newConversation: true });
+// Resume with LRU (no ID needed)
+await using agent4 = resumeAgent();
 ```
 
-**Key concepts:**
+## Key Concepts
+
 - **Agent** (`agentId`): Persistent entity with memory that survives across sessions
 - **Conversation** (`conversationId`): A message thread within an agent
-- **Session** (`sessionId`): A single execution/connection
-
-Agents remember across conversations (via memory blocks), but each conversation has its own message history.
+- **LRU**: Last Recently Used - the SDK tracks your last used agent/conversation
 
 ## Agent Configuration
 
@@ -124,12 +117,12 @@ Choose from built-in presets or provide a custom prompt:
 
 ```typescript
 // Use a preset
-createSession({
+createAgent({
   systemPrompt: { type: 'preset', preset: 'letta-claude' }
 });
 
 // Use a preset with additional instructions
-createSession({
+createAgent({
   systemPrompt: { 
     type: 'preset', 
     preset: 'letta-claude',
@@ -138,7 +131,7 @@ createSession({
 });
 
 // Use a completely custom prompt
-createSession({
+createAgent({
   systemPrompt: 'You are a helpful Python expert.'
 });
 ```
@@ -157,15 +150,15 @@ Configure which memory blocks the agent uses:
 
 ```typescript
 // Use default blocks (persona, human, project)
-createSession({});
+createAgent({});
 
 // Use specific preset blocks
-createSession({
+createAgent({
   memory: ['project', 'persona']  // Only these blocks
 });
 
 // Use custom blocks
-createSession({
+createAgent({
   memory: [
     { label: 'context', value: 'API documentation for Acme Corp...' },
     { label: 'rules', value: 'Always use TypeScript. Prefer functional patterns.' }
@@ -173,7 +166,7 @@ createSession({
 });
 
 // Mix presets and custom blocks
-createSession({
+createAgent({
   memory: [
     'project',  // Use default project block
     { label: 'custom', value: 'Additional context...' }
@@ -181,7 +174,7 @@ createSession({
 });
 
 // No optional blocks (only core skills blocks)
-createSession({
+createAgent({
   memory: []
 });
 ```
@@ -191,14 +184,14 @@ createSession({
 Quickly customize common memory blocks:
 
 ```typescript
-createSession({
+createAgent({
   persona: 'You are a senior Python developer who writes clean, tested code.',
   human: 'Name: Alice. Prefers concise responses.',
   project: 'FastAPI backend for a todo app using PostgreSQL.'
 });
 
 // Combine with memory config
-createSession({
+createAgent({
   memory: ['persona', 'project'],  // Only include these blocks
   persona: 'You are a Go expert.',
   project: 'CLI tool for managing Docker containers.'
@@ -232,18 +225,38 @@ const analysis = await prompt('Explain what auth.ts does', {
 
 | Function | Description |
 |----------|-------------|
+| `createAgent(options?)` | Create new agent |
+| `resumeAgent(id?, options?)` | Resume agent or conversation (auto-detects `agent-*` vs `conv-*` prefix) |
 | `prompt(message, options?)` | One-shot query, returns result directly |
-| `createSession(options?)` | Create new agent session |
-| `resumeSession(agentId, options?)` | Resume existing agent by ID |
-| `resumeConversation(conversationId, options?)` | Resume specific conversation (derives agent automatically) |
 
-### Session
+### Valid Combinations
+
+The table below shows how each function resolves the agent and conversation:
+
+- **Agent**: `New` (creates new), `LRU` (last used), `Specified` (by ID), `Derived` (from conversation)
+- **Conversation**: `Default` (agent's main thread), `New` (fresh thread), `LRU or Default` (last used if available), `Specified` (by ID)
+
+| Function | Agent | Conversation |
+|----------|-------|--------------|
+| `createAgent()` | New | Default |
+| `createAgent({ newConversation })` | New | New |
+| `resumeAgent()` | LRU | LRU or Default |
+| `resumeAgent({ newConversation })` | LRU | New |
+| `resumeAgent(agentId)` | Specified | Default |
+| `resumeAgent(agentId, { newConversation })` | Specified | New |
+| `resumeAgent(agentId, { lastConversation })` | Specified | LRU or Default |
+| `resumeAgent(conversationId)` | Derived | Specified |
+| `prompt(msg)` | LRU or New | New |
+| `prompt(msg, { agentId })` | Specified | New |
+
+### Agent
 
 | Property/Method | Description |
 |-----------------|-------------|
 | `send(message)` | Send user message |
 | `stream()` | AsyncGenerator yielding messages |
 | `close()` | Close the session |
+| `abort()` | Abort current execution |
 | `agentId` | Agent ID (for resuming later) |
 | `sessionId` | Current session ID |
 | `conversationId` | Conversation ID (for resuming specific thread) |
@@ -251,15 +264,13 @@ const analysis = await prompt('Explain what auth.ts does', {
 ### Options
 
 ```typescript
-interface SessionOptions {
+interface AgentOptions {
   // Model selection
   model?: string;
 
   // Conversation options
-  conversationId?: string;      // Resume specific conversation
-  newConversation?: boolean;    // Create new conversation on agent
-  continue?: boolean;           // Resume last session (agent + conversation)
-  defaultConversation?: boolean; // Use agent's default conversation
+  newConversation?: boolean;     // Create new conversation
+  lastConversation?: boolean;    // Use LRU conversation for this agent
 
   // System prompt: string or preset config
   systemPrompt?: string | {
@@ -282,13 +293,16 @@ interface SessionOptions {
 
   // Working directory
   cwd?: string;
+
+  // Custom permission callback
+  canUseTool?: (toolName: string, input: Record<string, unknown>) => CanUseToolResponse;
 }
 ```
 
 ### Message Types
 
 ```typescript
-// Streamed during receive()
+// Streamed during stream()
 interface SDKAssistantMessage {
   type: 'assistant';
   content: string;
@@ -313,7 +327,7 @@ See [`examples/`](./examples/) for comprehensive examples including:
 - Basic session usage
 - Multi-turn conversations
 - Session resume with persistent memory
-- **Multi-threaded conversations** (resumeConversation, newConversation)
+- Multi-threaded conversations
 - System prompt configuration
 - Memory block customization
 - Tool execution (Bash, Glob, Read, etc.)
