@@ -88,15 +88,47 @@ export type MemoryPreset = "persona" | "human" | "project";
 /**
  * Options for creating an agent via the CLI.
  */
-export interface CreateSessionOptions {
+export interface CreateAgentOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
-  /** System prompt configuration */
+  /** System prompt configuration (preset name or custom text) */
   systemPrompt?: SystemPromptConfig;
 
-  /** Memory blocks */
+  /** Append additional instructions to system prompt */
+  systemPromptAppend?: string;
+
+  /** Memory blocks to initialize the agent with */
   memory?: MemoryItem[];
+
+  /**
+   * Which memory blocks to include in conversations by default.
+   * If not specified, uses ["persona", "human", "project"].
+   * Set to empty array [] to disable optional blocks.
+   */
+  initBlocks?: string[];
+
+  /**
+   * Set values for specific memory blocks (e.g., { persona: "You are...", project: "..." }).
+   * Blocks must be included in initBlocks or memory.
+   */
+  blockValues?: Record<string, string>;
+
+  /**
+   * Base tools to load for the agent.
+   * If not specified, loads default tool set.
+   * Set to empty array [] to disable base tools.
+   */
+  baseTools?: string[];
+
+  /** Enable sleeptime functionality (agent can control thinking pauses) */
+  enableSleeptime?: boolean;
+
+  /** Skills directory path (for loading custom skills) */
+  skillsDirectory?: string;
+
+  /** Working directory for the agent session */
+  cwd?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -130,8 +162,17 @@ export interface SessionOptions {
   /** System prompt configuration */
   systemPrompt?: SystemPromptConfig;
 
+  /** Append additional instructions to system prompt */
+  systemPromptAppend?: string;
+
   /** Memory blocks */
   memory?: MemoryItem[];
+
+  /** Which memory blocks to include in conversations (only for new agents) */
+  initBlocks?: string[];
+
+  /** Set values for specific memory blocks (only for new agents) */
+  blockValues?: Record<string, string>;
 
   /** Convenience: Set persona block value directly */
   persona?: string;
@@ -141,6 +182,15 @@ export interface SessionOptions {
 
   /** Convenience: Set project block value directly */
   project?: string;
+
+  /** Base tools to load for the agent (only for new agents) */
+  baseTools?: string[];
+
+  /** Enable sleeptime functionality (only for new agents) */
+  enableSleeptime?: boolean;
+
+  /** Skills directory path (for loading custom skills) */
+  skillsDirectory?: string;
 
   /** List of allowed tool names */
   allowedTools?: string[];

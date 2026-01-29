@@ -28,7 +28,7 @@
 import { Session } from "./session.js";
 import { SubprocessTransport } from "./transport.js";
 import { getLruAgentId, updateLru } from "./lru.js";
-import type { SessionOptions, CreateSessionOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import type { SessionOptions, CreateAgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
 
 // Re-export LRU utilities
 export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
@@ -36,7 +36,7 @@ export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
 // Re-export types
 export type {
   SessionOptions,
-  CreateSessionOptions,
+  CreateAgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -73,7 +73,7 @@ export { Session } from "./session.js";
  * const session = createSession(agentId);
  * ```
  */
-export async function createAgent(options: CreateSessionOptions = {}): Promise<string> {
+export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
   // Create a session with --new-agent --create-only, read init message
   // CLI will exit cleanly after outputting init
   const transport = new SubprocessTransport({

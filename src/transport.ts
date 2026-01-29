@@ -209,11 +209,27 @@ export class SubprocessTransport {
       }
     }
 
+    // System prompt append (separate option)
+    if (this.options.systemPromptAppend !== undefined) {
+      args.push("--system-append", this.options.systemPromptAppend);
+    }
+
+    // Init blocks (only for new agents) - controls which preset blocks to include
+    if (this.options.initBlocks !== undefined && !this.options.agentId) {
+      if (this.options.initBlocks.length === 0) {
+        args.push("--init-blocks", "");
+      } else {
+        args.push("--init-blocks", this.options.initBlocks.join(","));
+      }
+    }
+
     // Memory blocks (only for new agents)
     if (this.options.memory !== undefined && !this.options.agentId) {
       if (this.options.memory.length === 0) {
         // Empty array → no memory blocks (just core)
-        args.push("--init-blocks", "");
+        if (this.options.initBlocks === undefined) {
+          args.push("--init-blocks", "");
+        }
       } else {
         // Separate preset names from custom/reference blocks
         const presetNames: string[] = [];
@@ -235,8 +251,8 @@ export class SubprocessTransport {
           }
         }
 
-        // Add preset names via --init-blocks
-        if (presetNames.length > 0) {
+        // Add preset names via --init-blocks (if not already set via initBlocks option)
+        if (presetNames.length > 0 && this.options.initBlocks === undefined) {
           args.push("--init-blocks", presetNames.join(","));
         }
 
@@ -247,8 +263,16 @@ export class SubprocessTransport {
       }
     }
 
-    // Convenience props for block values (only for new agents)
+    // Block values (only for new agents)
     if (!this.options.agentId) {
+      // Generic blockValues record
+      if (this.options.blockValues !== undefined) {
+        for (const [label, value] of Object.entries(this.options.blockValues)) {
+          args.push("--block-value", `${label}=${value}`);
+        }
+      }
+
+      // Convenience props for common blocks
       if (this.options.persona !== undefined) {
         args.push("--block-value", `persona=${this.options.persona}`);
       }
@@ -258,6 +282,27 @@ export class SubprocessTransport {
       if (this.options.project !== undefined) {
         args.push("--block-value", `project=${this.options.project}`);
       }
+    }
+
+    // Base tools (only for new agents)
+    if (this.options.baseTools !== undefined && !this.options.agentId) {
+      if (this.options.baseTools.length === 0) {
+        args.push("--base-tools", "");
+      } else {
+        args.push("--base-tools", this.options.baseTools.join(","));
+      }
+    }
+
+    // Sleeptime (only for new agents)
+    if (this.options.enableSleeptime !== undefined && !this.options.agentId) {
+      if (this.options.enableSleeptime) {
+        args.push("--sleeptime");
+      }
+    }
+
+    // Skills directory
+    if (this.options.skillsDirectory !== undefined) {
+      args.push("--skills", this.options.skillsDirectory);
     }
 
     // Permission mode
