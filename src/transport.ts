@@ -185,7 +185,11 @@ export class SubprocessTransport {
       if (this.options.newConversation) {
         // Create new conversation on this agent
         args.push("--new");
+      } else if (this.options.continueLastConversation) {
+        // Continue the last conversation for this agent
+        args.push("--continue");
       }
+      // Otherwise: uses agent's default conversation (no flag needed)
     } else {
       // Create new agent
       args.push("--new-agent");

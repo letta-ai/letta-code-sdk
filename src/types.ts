@@ -82,13 +82,13 @@ export type MemoryItem =
 export type MemoryPreset = "persona" | "human" | "project";
 
 // ═══════════════════════════════════════════════════════════════
-// AGENT OPTIONS (for createAgent)
+// AGENT OPTIONS
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Options for creating an agent via the CLI.
+ * Options for agent configuration.
  */
-export interface CreateAgentOptions {
+export interface AgentOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
@@ -132,7 +132,7 @@ export interface CreateAgentOptions {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SESSION OPTIONS (for createSession/resumeSession)
+// SESSION OPTIONS
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -145,34 +145,23 @@ export type CanUseToolCallback = (
 
 /**
  * Options for creating or resuming a session.
+ * Extends AgentOptions since sessions can create agents.
  */
-export interface SessionOptions {
-  /** Agent ID (set internally) */
+export interface SessionOptions extends AgentOptions {
+  /** Agent ID (for resuming existing agent) */
   agentId?: string;
 
-  /** Conversation ID (set internally) */
+  /** Conversation ID (for resuming specific conversation) */
   conversationId?: string;
-
-  /** Model to use (e.g., "claude-sonnet-4-20250514") */
-  model?: string;
 
   /** Create a new conversation */
   newConversation?: boolean;
 
-  /** System prompt configuration */
-  systemPrompt?: SystemPromptConfig;
+  /** Connect to the default conversation (explicit) */
+  defaultConversation?: boolean;
 
-  /** Append additional instructions to system prompt */
-  systemPromptAppend?: string;
-
-  /** Memory blocks */
-  memory?: MemoryItem[];
-
-  /** Which memory blocks to include in conversations (only for new agents) */
-  initBlocks?: string[];
-
-  /** Set values for specific memory blocks (only for new agents) */
-  blockValues?: Record<string, string>;
+  /** Continue the last conversation (internal flag for resumeSession) */
+  continueLastConversation?: boolean;
 
   /** Convenience: Set persona block value directly */
   persona?: string;
@@ -183,23 +172,11 @@ export interface SessionOptions {
   /** Convenience: Set project block value directly */
   project?: string;
 
-  /** Base tools to load for the agent (only for new agents) */
-  baseTools?: string[];
-
-  /** Enable sleeptime functionality (only for new agents) */
-  enableSleeptime?: boolean;
-
-  /** Skills directory path (for loading custom skills) */
-  skillsDirectory?: string;
-
-  /** List of allowed tool names */
+  /** List of allowed tool names (runtime filtering) */
   allowedTools?: string[];
 
   /** Permission mode */
   permissionMode?: PermissionMode;
-
-  /** Working directory */
-  cwd?: string;
 
   /** Maximum conversation turns */
   maxTurns?: number;

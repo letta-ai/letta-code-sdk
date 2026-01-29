@@ -8,7 +8,7 @@
  * Run with: bun examples/v2-examples.ts [example]
  */
 
-import { createSession, resumeSession, resumeConversation, prompt } from '../src/index.js';
+import { createAgent, createSession, resumeSession, prompt } from '../src/index.js';
 
 async function main() {
   const example = process.argv[2] || 'basic';
@@ -22,6 +22,9 @@ async function main() {
       break;
     case 'one-shot':
       await oneShot();
+      break;
+    case 'create-agent':
+      await testCreateAgent();
       break;
     case 'resume':
       await sessionResume();
@@ -57,6 +60,7 @@ async function main() {
       await basicSession();
       await multiTurn();
       await oneShot();
+      await testCreateAgent();
       await sessionResume();
       await testOptions();
       await testMessageTypes();
@@ -70,7 +74,7 @@ async function main() {
       console.log('\n✅ All examples passed');
       break;
     default:
-      console.log('Usage: bun v2-examples.ts [basic|multi-turn|one-shot|resume|options|message-types|session-properties|tool-execution|permission-callback|system-prompt|memory-config|convenience-props|conversations|all]');
+      console.log('Usage: bun v2-examples.ts [basic|multi-turn|one-shot|create-agent|resume|options|message-types|session-properties|tool-execution|permission-callback|system-prompt|memory-config|convenience-props|conversations|all]');
   }
 }
 
@@ -82,7 +86,7 @@ async function main() {
 async function basicSession() {
   console.log('=== Basic Session ===\n');
 
-  await using session = createSession({
+  await using session = createSession(undefined, {
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -106,7 +110,7 @@ async function basicSession() {
 async function multiTurn() {
   console.log('=== Multi-Turn Conversation ===\n');
 
-  await using session = createSession({
+  await using session = createSession(undefined, {
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -147,6 +151,85 @@ async function oneShot() {
   console.log();
 }
 
+// Create agent first, then interact
+async function testCreateAgent() {
+  console.log('=== Create Agent + Sessions ===\n');
+
+  // Create agent with custom configuration
+  console.log('Creating agent...');
+  const agentId = await createAgent({
+    model: 'haiku',
+    systemPrompt: 'You are a helpful assistant. Keep responses concise.',
+    blockValues: {
+      persona: 'You are a friendly AI assistant.',
+    },
+  });
+  console.log(`Agent created: ${agentId}\n`);
+
+  // Session 1: Connect to default conversation
+  console.log('[Session 1] Connect to agent (default conversation)...');
+  {
+    const session = createSession(agentId, {
+      permissionMode: 'bypassPermissions',
+    });
+
+    await session.send('Remember: my favorite color is blue.');
+    let response = '';
+    for await (const msg of session.stream()) {
+      if (msg.type === 'assistant') response += msg.content;
+      if (msg.type === 'result') {
+        console.log(`Response: ${response.trim()}`);
+        console.log(`Conversation: ${session.conversationId}\n`);
+      }
+    }
+    session.close();
+  }
+
+  // Session 2: Resume (continues from last)
+  console.log('[Session 2] Resume agent (continues last conversation)...');
+  {
+    await using session = resumeSession(agentId, {
+      permissionMode: 'bypassPermissions',
+    });
+
+    await session.send('What is my favorite color?');
+    let response = '';
+    for await (const msg of session.stream()) {
+      if (msg.type === 'assistant') response += msg.content;
+      if (msg.type === 'result') {
+        console.log(`Response: ${response.trim()}`);
+        const remembers = response.toLowerCase().includes('blue');
+        console.log(`Remembers: ${remembers ? 'YES ✓' : 'NO ✗'}\n`);
+      }
+    }
+  }
+
+  // Session 3: Create new conversation
+  console.log('[Session 3] Resume with NEW conversation...');
+  {
+    await using session = resumeSession(agentId, {
+      permissionMode: 'bypassPermissions',
+      newConversation: true,
+    });
+
+    await session.send('What is my favorite color?');
+    let response = '';
+    for await (const msg of session.stream()) {
+      if (msg.type === 'assistant') response += msg.content;
+      if (msg.type === 'result') {
+        console.log(`Response: ${response.trim()}`);
+        const remembers = response.toLowerCase().includes('blue');
+        console.log(`Remembers: ${remembers ? 'NO (expected) ✓' : 'YES (unexpected) ✗'}\n`);
+      }
+    }
+  }
+
+  console.log('Key insights:');
+  console.log('  - createSession(agentId) → default conversation (stable)');
+  console.log('  - resumeSession(agentId) → last conversation (continue work)');
+  console.log('  - { newConversation: true } → fresh start\n');
+}
+
 // Session resume - with PERSISTENT MEMORY
 async function sessionResume() {
   console.log('=== Session Resume (Persistent Memory) ===\n');
@@ -155,7 +238,7 @@ async function sessionResume() {
 
   // First session - establish a memory
   {
-    const session = createSession({
+    const session = createSession(undefined, {
       model: 'haiku',
       permissionMode: 'bypassPermissions',
     });
@@ -264,7 +347,7 @@ async function testOptions() {
 async function testMessageTypes() {
   console.log('=== Testing Message Types ===\n');
 
-  const session = createSession({
+  const session = createSession(undefined, {
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -309,7 +392,7 @@ async function testMessageTypes() {
 async function testSessionProperties() {
   console.log('=== Testing Session Properties ===\n');
 
-  const session = createSession({
+  const session = createSession(undefined, {
     model: 'haiku',
     permissionMode: 'bypassPermissions',
   });
@@ -406,9 +489,9 @@ async function testPermissionCallback() {
       console.error('CALLBACK:', toolName, toolInput);
       const command = (toolInput as { command?: string }).command || '';
       if (command.includes('callback-allowed')) {
-        return { allow: true, reason: 'Command whitelisted' };
+        return { behavior: 'allow', message: 'Command whitelisted' };
       }
-      return { allow: false, reason: 'Command not whitelisted' };
+      return { behavior: 'deny', message: 'Command not whitelisted' };
     },
   });
   const hasAllowed = allowResult.result?.includes('callback-allowed');
@@ -422,9 +505,9 @@ async function testPermissionCallback() {
     canUseTool: async (toolName, toolInput) => {
       const command = (toolInput as { command?: string }).command || '';
       if (command.includes('dangerous')) {
-        return { allow: false, reason: 'Dangerous command blocked' };
+        return { behavior: 'deny', message: 'Dangerous command blocked' };
       }
-      return { allow: true };
+      return { behavior: 'allow' };
     },
   });
   // Agent should report that it couldn't execute the command
@@ -641,7 +724,7 @@ async function testConversations() {
   // Test 1: Create session and get conversationId (default)
   console.log('Test 1: Create session and get conversationId...');
   {
-    const session = createSession({
+    const session = createSession(undefined, {
       model: 'haiku',
       permissionMode: 'bypassPermissions',
     });
@@ -696,7 +779,7 @@ async function testConversations() {
     console.log('  SKIP - "default" is not a real conversation ID');
     console.log('  Use resumeSession(agentId) to resume default conversation');
   } else {
-    await using session = resumeConversation(conversationId1!, {
+    await using session = resumeSession(conversationId1!, {
       permissionMode: 'bypassPermissions',
     });
 
@@ -708,7 +791,7 @@ async function testConversations() {
     }
 
     const remembers = response.toLowerCase().includes('beta');
-    console.log(`  resumeConversation: ${remembers ? 'PASS' : 'FAIL'}`);
+    console.log(`  resumeSession: ${remembers ? 'PASS' : 'FAIL'}`);
     console.log(`  Response: ${response.slice(0, 80)}...`);
     
     // Verify same conversationId
@@ -740,30 +823,50 @@ async function testConversations() {
     console.log(`  conversationId2: ${conversationId2}`);
   }
 
-  // Test 5: defaultConversation option
-  console.log('\nTest 5: defaultConversation option...');
+  // Test 5a: defaultConversation with createSession
+  console.log('\nTest 5a: defaultConversation with createSession...');
   {
-    await using session = resumeSession(agentId!, {
+    await using session = createSession(agentId!, {
       defaultConversation: true,
       permissionMode: 'bypassPermissions',
     });
 
     await session.send('Say "default conversation test ok"');
-    
+
     let response = '';
     for await (const msg of session.stream()) {
       if (msg.type === 'assistant') response += msg.content;
     }
 
     const hasDefaultConv = session.conversationId === 'default' || session.conversationId !== null;
-    console.log(`  defaultConversation: ${hasDefaultConv ? 'PASS' : 'CHECK'}`);
+    console.log(`  createSession with defaultConversation: ${hasDefaultConv ? 'PASS' : 'CHECK'}`);
+    console.log(`  conversationId: ${session.conversationId}`);
+  }
+
+  // Test 5b: defaultConversation with resumeSession
+  console.log('\nTest 5b: defaultConversation with resumeSession...');
+  {
+    await using session = resumeSession(agentId!, {
+      defaultConversation: true,
+      permissionMode: 'bypassPermissions',
+    });
+
+    await session.send('Say "resume default conversation test ok"');
+
+    let response = '';
+    for await (const msg of session.stream()) {
+      if (msg.type === 'assistant') response += msg.content;
+    }
+
+    const hasDefaultConv = session.conversationId === 'default' || session.conversationId !== null;
+    console.log(`  resumeSession with defaultConversation: ${hasDefaultConv ? 'PASS' : 'CHECK'}`);
     console.log(`  conversationId: ${session.conversationId}`);
   }
 
   // Test 6: conversationId in result message
   console.log('\nTest 6: conversationId in result message...');
   {
-    await using session = resumeConversation(conversationId1!, {
+    await using session = resumeSession(conversationId1!, {
       permissionMode: 'bypassPermissions',
     });
 
@@ -788,8 +891,8 @@ async function testConversations() {
     // Note: This test may behave differently depending on local state
     // The --continue flag resumes the last used agent + conversation
     try {
-      await using session = createSession({
-        continue: true,
+      await using session = createSession(undefined, {
+        continueLastConversation: true,
         permissionMode: 'bypassPermissions',
       });
 

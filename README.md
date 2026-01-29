@@ -93,24 +93,45 @@ session2.close();
 Run multiple concurrent conversations with the same agent:
 
 ```typescript
-import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
+import { createAgent, createSession, resumeSession } from '@letta-ai/letta-code-sdk';
 
 const agentId = await createAgent();
 
 // Create two separate conversations
-const session1 = resumeSession(agentId, { newConversation: true });
+const session1 = createSession(agentId, { newConversation: true });
 await session1.send('Topic A discussion...');
 for await (const msg of session1.stream()) { /* ... */ }
 const convId1 = session1.conversationId;
 session1.close();
 
-const session2 = resumeSession(agentId, { newConversation: true });
+const session2 = createSession(agentId, { newConversation: true });
 await session2.send('Topic B discussion...');
 for await (const msg of session2.stream()) { /* ... */ }
 session2.close();
 
 // Resume specific conversation later
 const resumed = resumeSession(convId1);  // auto-detects conv-* prefix
+```
+
+### Understanding conversation options
+
+```typescript
+const agentId = await createAgent();
+
+// Connect to default conversation (stable, predictable)
+createSession(agentId);
+createSession(agentId, { defaultConversation: true }); // explicit
+resumeSession(agentId, { defaultConversation: true }); // also works
+
+// Create new conversation
+createSession(agentId, { newConversation: true });
+resumeSession(agentId, { newConversation: true }); // also works
+
+// Continue from last conversation (resume behavior)
+resumeSession(agentId); // default behavior: --continue flag
+
+// Resume specific conversation by ID
+resumeSession('conv-xxx');
 ```
 
 ## Key Concepts
@@ -202,9 +223,9 @@ const session = createSession(agentId, {
 
 | Function | Description |
 |----------|-------------|
-| `createAgent(options?)` | Create agent via API, returns agentId immediately |
-| `createSession(agentId?)` | Create session (new agent if no ID) |
-| `resumeSession(id, options?)` | Resume by agentId or convId (auto-detects) |
+| `createAgent(options?)` | Create agent, returns agentId immediately |
+| `createSession(agentId?, options?)` | Create session (default conversation if agentId provided, new agent otherwise) |
+| `resumeSession(id, options?)` | Resume by agentId (continues last conversation by default) or convId (auto-detects). Supports `defaultConversation` and `newConversation` options. |
 | `prompt(message, options?)` | One-shot query, uses LRU agent or creates new |
 
 ### Session
@@ -219,10 +240,10 @@ const session = createSession(agentId, {
 | `sessionId` | Current session ID |
 | `conversationId` | Conversation ID |
 
-### CreateAgentOptions
+### AgentOptions
 
 ```typescript
-interface CreateAgentOptions {
+interface AgentOptions {
   // Model configuration
   model?: string;  // e.g., "claude-sonnet-4", "claude-opus-4"
 
@@ -248,44 +269,30 @@ interface CreateAgentOptions {
 ### SessionOptions
 
 ```typescript
-interface SessionOptions {
+// SessionOptions extends AgentOptions
+interface SessionOptions extends AgentOptions {
   // Session targeting
-  agentId?: string;           // Resume specific agent
-  conversationId?: string;    // Resume specific conversation
-  newConversation?: boolean;  // Create new conversation on agent
-
-  // Model configuration
-  model?: string;             // Override model for this session
-
-  // System prompt (only for new agents)
-  systemPrompt?: string | SystemPromptPresetConfig;
-  systemPromptAppend?: string;
-
-  // Memory configuration (only for new agents)
-  memory?: MemoryItem[];
-  initBlocks?: string[];
-  blockValues?: Record<string, string>;
+  agentId?: string;              // Resume specific agent
+  conversationId?: string;       // Resume specific conversation
+  newConversation?: boolean;     // Create new conversation on agent
+  defaultConversation?: boolean; // Connect to default conversation (explicit)
 
   // Convenience props for common blocks
   persona?: string;
   human?: string;
   project?: string;
 
-  // Tool configuration (only for new agents)
-  baseTools?: string[];
-  enableSleeptime?: boolean;
-  skillsDirectory?: string;
-
-  // Permission configuration
+  // Permission configuration (runtime)
   allowedTools?: string[];    // Filter which tools are available
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions';
   canUseTool?: CanUseToolCallback;  // Custom permission callback
 
   // Other options
-  cwd?: string;
   maxTurns?: number;
 }
 ```
+
+SessionOptions inherits all agent configuration options from AgentOptions (model, systemPrompt, memory, initBlocks, baseTools, etc.). When creating a session without an agentId, these options configure the new agent.
 
 ### Message Types
 

@@ -28,7 +28,7 @@
 import { Session } from "./session.js";
 import { SubprocessTransport } from "./transport.js";
 import { getLruAgentId, updateLru } from "./lru.js";
-import type { SessionOptions, CreateAgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import type { SessionOptions, AgentOptions, SDKMessage, SDKResultMessage } from "./types.js";
 
 // Re-export LRU utilities
 export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
@@ -36,7 +36,7 @@ export { getLruAgentId, getLruConversationId, clearLru } from "./lru.js";
 // Re-export types
 export type {
   SessionOptions,
-  CreateAgentOptions,
+  AgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -73,7 +73,7 @@ export { Session } from "./session.js";
  * const session = createSession(agentId);
  * ```
  */
-export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
+export async function createAgent(options: AgentOptions = {}): Promise<string> {
   // Create a session with --new-agent --create-only, read init message
   // CLI will exit cleanly after outputting init
   const transport = new SubprocessTransport(options, { createOnly: true });
@@ -112,17 +112,20 @@ export async function createAgent(options: CreateAgentOptions = {}): Promise<str
 /**
  * Create a new session.
  *
- * If agentId is provided, creates a session on that agent.
+ * If agentId is provided, connects to that agent's default conversation.
  * If no agentId, creates a new agent automatically (via CLI).
  *
  * @example
  * ```typescript
- * // With existing agent
+ * // With existing agent (uses default conversation)
  * const session = createSession(agentId);
  *
- * // Or create new agent automatically
+ * // Create new agent automatically
  * const session = createSession();
  * // session.agentId available after send()
+ *
+ * // Explicit new conversation
+ * const session = createSession(agentId, { newConversation: true });
  * ```
  */
 export function createSession(agentId?: string, options: SessionOptions = {}): Session {
@@ -136,35 +139,52 @@ export function createSession(agentId?: string, options: SessionOptions = {}): S
  * Resume an existing session by agent ID or conversation ID.
  *
  * Auto-detects whether the ID is an agent ID (agent-*) or conversation ID (conv-*).
+ * When resuming by agent ID, continues the last active conversation (or default as fallback),
+ * unless newConversation is explicitly set to true.
  *
  * @example
  * ```typescript
- * // Resume agent (uses default conversation)
+ * // Resume agent (continues last/default conversation)
  * const session = resumeSession('agent-xxx');
  *
  * // Resume specific conversation
  * const session = resumeSession('conv-xxx');
  *
- * // Resume with options
+ * // Resume agent but start NEW conversation
  * const session = resumeSession('agent-xxx', { newConversation: true });
  * ```
  */
 export function resumeSession(id: string, options: SessionOptions = {}): Session {
   const isConversationId = id.startsWith("conv-");
   const isAgentId = id.startsWith("agent-");
-  
+
   if (!isConversationId && !isAgentId) {
     throw new Error(`Invalid ID format: "${id}". Expected agent-* or conv-* prefix.`);
   }
-  
+
   if (isConversationId) {
     if (options.newConversation) {
       throw new Error("Cannot use newConversation with a conversation ID.");
     }
+    if (options.defaultConversation) {
+      throw new Error("Cannot use defaultConversation with a conversation ID.");
+    }
     return new Session({ ...options, conversationId: id });
   }
-  
-  return new Session({ ...options, agentId: id });
+
+  // Resume agent - determine conversation behavior
+  if (options.newConversation) {
+    // User explicitly wants new conversation
+    return new Session({ ...options, agentId: id });
+  }
+
+  if (options.defaultConversation) {
+    // User explicitly wants default conversation
+    return new Session({ ...options, agentId: id });
+  }
+
+  // Default: continue last conversation (via --continue flag)
+  return new Session({ ...options, agentId: id, continueLastConversation: true });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -191,10 +211,11 @@ export async function prompt(
   options: SessionOptions = {}
 ): Promise<SDKResultMessage> {
   const agentId = options.agentId ?? getLruAgentId();
-  
+
   let session: Session;
   if (agentId) {
-    session = resumeSession(agentId, { ...options, newConversation: true });
+    // Use createSession to create new conversation (not resumeSession)
+    session = createSession(agentId, { ...options, newConversation: true });
   } else {
     session = createSession(undefined, { ...options, newConversation: true });
   }

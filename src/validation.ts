@@ -79,4 +79,31 @@ export function validateSessionOptions(options: SessionOptions): void {
         "Use conversationId to resume a specific conversation, or newConversation to create a new one."
     );
   }
+
+  if (options.conversationId && options.defaultConversation) {
+    throw new Error(
+      "Cannot use both 'conversationId' and 'defaultConversation'. " +
+        "Use conversationId to resume a specific conversation, or defaultConversation to use the agent's default."
+    );
+  }
+
+  if (options.newConversation && options.defaultConversation) {
+    throw new Error(
+      "Cannot use both 'newConversation' and 'defaultConversation'. " +
+        "Choose either to create a new conversation or use the default one."
+    );
+  }
+
+  // Note: newConversation + continueLastConversation is handled gracefully in resumeSession()
+  // (newConversation takes precedence, no error needed)
+
+  if (options.continueLastConversation && options.conversationId) {
+    throw new Error(
+      "Cannot use both 'continueLastConversation' and 'conversationId'. " +
+        "Use conversationId to resume a specific conversation."
+    );
+  }
+
+  // Note: continueLastConversation + defaultConversation is handled in resumeSession()
+  // defaultConversation takes precedence (no --continue flag added)
 }
