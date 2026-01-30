@@ -41,6 +41,11 @@ export type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
+  // Multimodal content types
+  TextContent,
+  ImageContent,
+  MessageContentItem,
+  SendMessage,
 } from "./types.js";
 
 export { Session } from "./session.js";
@@ -158,4 +163,95 @@ export async function prompt(
   } finally {
     session.close();
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMAGE HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+import { readFileSync } from "node:fs";
+import type { ImageContent } from "./types.js";
+
+/**
+ * Create image content from a file path.
+ * 
+ * @example
+ * ```typescript
+ * await session.send([
+ *   { type: "text", text: "What's in this image?" },
+ *   imageFromFile("./screenshot.png")
+ * ]);
+ * ```
+ */
+export function imageFromFile(filePath: string): ImageContent {
+  const data = readFileSync(filePath).toString("base64");
+  const ext = filePath.toLowerCase();
+  const mediaType: ImageContent["source"]["mediaType"] = 
+    ext.endsWith(".png") ? "image/png"
+    : ext.endsWith(".gif") ? "image/gif"
+    : ext.endsWith(".webp") ? "image/webp"
+    : "image/jpeg";
+  
+  return {
+    type: "image",
+    source: { type: "base64", mediaType, data }
+  };
+}
+
+/**
+ * Create image content from base64 data.
+ * 
+ * @example
+ * ```typescript
+ * const base64 = fs.readFileSync("image.png").toString("base64");
+ * await session.send([
+ *   { type: "text", text: "Describe this" },
+ *   imageFromBase64(base64, "image/png")
+ * ]);
+ * ```
+ */
+export function imageFromBase64(
+  data: string,
+  mediaType: ImageContent["source"]["mediaType"] = "image/png"
+): ImageContent {
+  return {
+    type: "image",
+    source: { type: "base64", mediaType, data }
+  };
+}
+
+/**
+ * Create image content from a URL.
+ * Fetches the image and converts to base64.
+ * 
+ * @example
+ * ```typescript
+ * const img = await imageFromURL("https://example.com/image.png");
+ * await session.send([
+ *   { type: "text", text: "What's this?" },
+ *   img
+ * ]);
+ * ```
+ */
+export async function imageFromURL(url: string): Promise<ImageContent> {
+  const response = await fetch(url);
+  const buffer = await response.arrayBuffer();
+  const data = Buffer.from(buffer).toString("base64");
+  
+  // Detect media type from content-type header or URL
+  const contentType = response.headers.get("content-type");
+  let mediaType: ImageContent["source"]["mediaType"] = "image/png";
+  
+  if (contentType?.includes("jpeg") || contentType?.includes("jpg") || url.match(/\.jpe?g$/i)) {
+    mediaType = "image/jpeg";
+  } else if (contentType?.includes("gif") || url.endsWith(".gif")) {
+    mediaType = "image/gif";
+  } else if (contentType?.includes("webp") || url.endsWith(".webp")) {
+    mediaType = "image/webp";
+  }
+  
+  return {
+    type: "image",
+    source: { type: "base64", mediaType, data }
+  };
 }

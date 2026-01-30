@@ -28,6 +28,40 @@ export type {
 import type { CreateBlock, CanUseToolResponse } from "@letta-ai/letta-code/protocol";
 
 // ═══════════════════════════════════════════════════════════════
+// MESSAGE CONTENT TYPES (for multimodal support)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Text content in a message
+ */
+export interface TextContent {
+  type: "text";
+  text: string;
+}
+
+/**
+ * Image content in a message (base64 encoded)
+ */
+export interface ImageContent {
+  type: "image";
+  source: {
+    type: "base64";
+    mediaType: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+    data: string;
+  };
+}
+
+/**
+ * A single content item (text or image)
+ */
+export type MessageContentItem = TextContent | ImageContent;
+
+/**
+ * What send() accepts - either a simple string or multimodal content array
+ */
+export type SendMessage = string | MessageContentItem[];
+
+// ═══════════════════════════════════════════════════════════════
 // SYSTEM PROMPT TYPES
 // ═══════════════════════════════════════════════════════════════
 
