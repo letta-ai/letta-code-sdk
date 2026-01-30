@@ -202,7 +202,10 @@ export class SubprocessTransport {
     } else {
       // Create new agent
       args.push("--new-agent");
-      if (this.options.newConversation) {
+      if (this.options.createOnly) {
+        // Create agent only, don't start a conversation
+        args.push("--create-only");
+      } else if (this.options.newConversation) {
         // Also create new conversation (not default)
         args.push("--new");
       }

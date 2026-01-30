@@ -5,20 +5,24 @@
  *
  * @example
  * ```typescript
- * import { createSession, prompt } from '@letta-ai/letta-code-sdk';
+ * import { createAgent, createSession, resumeSession, prompt } from '@letta-ai/letta-code-sdk';
  *
- * // One-shot
- * const result = await prompt('What is 2+2?', { model: 'claude-sonnet-4-20250514' });
+ * // Create agent (has default conversation)
+ * const agentId = await createAgent();
  *
- * // Multi-turn session
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
- * await session.send('Hello!');
- * for await (const msg of session.stream()) {
- *   if (msg.type === 'assistant') console.log(msg.content);
- * }
+ * // Resume default conversation
+ * const session = resumeSession(agentId);
  *
- * // Resume with persistent memory
- * await using resumed = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
+ * // Resume specific conversation
+ * const session = resumeSession('conv-xxx');
+ *
+ * // Create NEW conversation
+ * const session = createSession(agentId);
+ * const session = createSession();  // also creates new agent
+ *
+ * // One-shot prompt
+ * const result = await prompt('Hello', agentId);
+ * const result = await prompt('Hello');  // creates new agent
  * ```
  */
 
@@ -46,92 +50,93 @@ export type {
 export { Session } from "./session.js";
 
 /**
- * Create a new session with a fresh Letta agent.
- *
- * The agent will have persistent memory that survives across sessions.
- * Use `resumeSession` to continue a conversation with an existing agent.
+ * Create a new agent with a default conversation.
+ * Returns the agentId which can be used with resumeSession or createSession.
  *
  * @example
  * ```typescript
- * await using session = createSession({ model: 'claude-sonnet-4-20250514' });
- * await session.send('My name is Alice');
- * for await (const msg of session.stream()) {
- *   console.log(msg);
- * }
- * console.log(`Agent ID: ${session.agentId}`); // Save this to resume later
+ * const agentId = await createAgent();
+ *
+ * // Then resume the default conversation:
+ * const session = resumeSession(agentId);
  * ```
  */
-export function createSession(options: SessionOptions = {}): Session {
-  return new Session(options);
+export async function createAgent(): Promise<string> {
+  const session = new Session({ createOnly: true });
+  const initMsg = await session.initialize();
+  session.close();
+  return initMsg.agentId;
 }
 
 /**
- * Resume an existing session with a Letta agent.
+ * Create a new conversation (session).
  *
- * Unlike Claude Agent SDK (ephemeral sessions), Letta agents have persistent
- * memory. You can resume a conversation days later and the agent will remember.
+ * - With agentId: creates new conversation on existing agent
+ * - Without agentId: creates new agent with new conversation
  *
  * @example
  * ```typescript
- * // Days later...
- * await using session = resumeSession(agentId, { model: 'claude-sonnet-4-20250514' });
- * await session.send('What is my name?');
- * for await (const msg of session.stream()) {
- *   // Agent remembers: "Your name is Alice"
- * }
+ * // New conversation on existing agent
+ * await using session = createSession(agentId);
+ *
+ * // New agent + new conversation
+ * await using session = createSession();
+ * ```
+ */
+export function createSession(agentId?: string, options: SessionOptions = {}): Session {
+  if (agentId) {
+    return new Session({ ...options, agentId, newConversation: true });
+  } else {
+    return new Session({ ...options, newConversation: true });
+  }
+}
+
+/**
+ * Resume an existing session.
+ *
+ * - Pass an agent ID (agent-xxx) to resume the default conversation
+ * - Pass a conversation ID (conv-xxx) to resume a specific conversation
+ *
+ * The default conversation always exists after createAgent, so you can:
+ * `createAgent()` → `resumeSession(agentId)` without needing createSession first.
+ *
+ * @example
+ * ```typescript
+ * // Resume default conversation
+ * await using session = resumeSession(agentId);
+ *
+ * // Resume specific conversation
+ * await using session = resumeSession('conv-xxx');
  * ```
  */
 export function resumeSession(
-  agentId: string,
+  id: string,
   options: SessionOptions = {}
 ): Session {
-  return new Session({ ...options, agentId });
-}
-
-/**
- * Resume an existing conversation.
- *
- * Conversations are threads within an agent. The agent is derived automatically
- * from the conversation ID. Use this to continue a specific conversation thread.
- *
- * @example
- * ```typescript
- * // Resume a specific conversation
- * await using session = resumeConversation(conversationId);
- * await session.send('Continue our discussion...');
- * for await (const msg of session.stream()) {
- *   console.log(msg);
- * }
- * ```
- */
-export function resumeConversation(
-  conversationId: string,
-  options: SessionOptions = {}
-): Session {
-  return new Session({ ...options, conversationId });
+  if (id.startsWith("conv-")) {
+    return new Session({ ...options, conversationId: id });
+  } else {
+    return new Session({ ...options, agentId: id, defaultConversation: true });
+  }
 }
 
 /**
  * One-shot prompt convenience function.
  *
- * Creates a session, sends the prompt, collects the response, and closes.
- * Returns the final result message.
+ * - With agentId: uses existing agent, creates new conversation
+ * - Without agentId: creates new agent
  *
  * @example
  * ```typescript
- * const result = await prompt('What is the capital of France?', {
- *   model: 'claude-sonnet-4-20250514'
- * });
- * if (result.success) {
- *   console.log(result.result);
- * }
+ * const result = await prompt('What is the capital of France?', agentId);
+ * const result = await prompt('What is 2+2?');  // creates new agent
  * ```
  */
 export async function prompt(
   message: string,
-  options: SessionOptions = {}
+  agentId?: string
 ): Promise<SDKResultMessage> {
-  const session = createSession(options);
+  const session = createSession(agentId);
 
   try {
     await session.send(message);

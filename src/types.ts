@@ -112,13 +112,13 @@ export interface SessionOptions {
   /** Use agent's default conversation (requires agentId) */
   defaultConversation?: boolean;
 
+  /** Create agent only, don't start a conversation (internal use) */
+  createOnly?: boolean;
+
   /**
    * System prompt configuration.
    * - string: Use as the complete system prompt
    * - { type: 'preset', preset, append? }: Use a preset with optional appended text
-   *
-   * Available presets: 'default', 'letta-claude', 'letta-codex', 'letta-gemini',
-   *                    'claude', 'codex', 'gemini'
    */
   systemPrompt?: SystemPromptConfig;
 
@@ -127,27 +127,16 @@ export interface SessionOptions {
    * - string: Preset block name ("project", "persona", "human")
    * - CreateBlock: Custom block definition
    * - { blockId: string }: Reference to existing shared block
-   *
-   * If not specified, defaults to ["persona", "human", "project"].
-   * Core blocks (skills, loaded_skills) are always included automatically.
    */
   memory?: MemoryItem[];
 
-  /**
-   * Convenience: Set persona block value directly.
-   * Uses default block description/limit, just overrides the value.
-   * Error if persona not included in memory config.
-   */
+  /** Convenience: Set persona block value directly */
   persona?: string;
 
-  /**
-   * Convenience: Set human block value directly.
-   */
+  /** Convenience: Set human block value directly */
   human?: string;
 
-  /**
-   * Convenience: Set project block value directly.
-   */
+  /** Convenience: Set project block value directly */
   project?: string;
 
   /** List of allowed tool names */
