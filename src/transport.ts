@@ -28,6 +28,10 @@ export class SubprocessTransport {
 
     // Find the CLI - use the installed letta-code package
     const cliPath = await this.findCli();
+    if (process.env.DEBUG) {
+      console.log("[letta-code-sdk] Using CLI:", cliPath);
+      console.log("[letta-code-sdk] Args:", args.join(" "));
+    }
 
     this.process = spawn("node", [cliPath, ...args], {
       cwd: this.options.cwd || process.cwd(),
@@ -55,13 +59,26 @@ export class SubprocessTransport {
       }
     });
 
+    // Log stderr for debugging (CLI errors, auth failures, etc.)
+    if (this.process.stderr) {
+      this.process.stderr.on("data", (data: Buffer) => {
+        const msg = data.toString().trim();
+        if (msg) {
+          console.error("[letta-code-sdk] CLI stderr:", msg);
+        }
+      });
+    }
+
     // Handle process exit
-    this.process.on("close", () => {
+    this.process.on("close", (code) => {
       this.closed = true;
+      if (code !== 0 && code !== null) {
+        console.error(`[letta-code-sdk] CLI process exited with code ${code}`);
+      }
     });
 
     this.process.on("error", (err) => {
-      console.error("CLI process error:", err);
+      console.error("[letta-code-sdk] CLI process error:", err);
       this.closed = true;
     });
   }
