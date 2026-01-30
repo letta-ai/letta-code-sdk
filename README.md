@@ -248,12 +248,6 @@ interface SessionOptions {
   project?: string;
   cwd?: string;
 
-  // Conversation options
-  conversationId?: string;      // Resume specific conversation
-  newConversation?: boolean;    // Create new conversation
-  continue?: boolean;           // Resume last session
-  defaultConversation?: boolean; // Use agent's default conversation
-
   // Tool configuration
   allowedTools?: string[];
   permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions';

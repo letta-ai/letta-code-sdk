@@ -100,20 +100,13 @@ export interface SessionOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
 
-  /** Resume a specific conversation by ID (derives agent automatically) */
-  conversationId?: string;
-
-  /** Create a new conversation for concurrent sessions (requires agentId) */
-  newConversation?: boolean;
-
-  /** Resume the last session (agent + conversation from previous run) */
-  continue?: boolean;
-
-  /** Use agent's default conversation (requires agentId) */
-  defaultConversation?: boolean;
-
-  /** Create agent only, don't start a conversation (internal use) */
-  createOnly?: boolean;
+  // ═══════════════════════════════════════════════════════════════
+  // Internal flags - set by createSession/resumeSession, not user-facing
+  // ═══════════════════════════════════════════════════════════════
+  /** @internal */ conversationId?: string;
+  /** @internal */ newConversation?: boolean;
+  /** @internal */ defaultConversation?: boolean;
+  /** @internal */ createOnly?: boolean;
 
   /**
    * System prompt configuration.

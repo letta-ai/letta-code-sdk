@@ -80,20 +80,6 @@ export function validateSessionOptions(options: SessionOptions): void {
     );
   }
 
-  if (options.continue && options.conversationId) {
-    throw new Error(
-      "Cannot use both 'continue' and 'conversationId'. " +
-        "Use continue to resume the last session, or conversationId to resume a specific conversation."
-    );
-  }
-
-  if (options.continue && options.newConversation) {
-    throw new Error(
-      "Cannot use both 'continue' and 'newConversation'. " +
-        "Use continue to resume the last session, or newConversation to create a new one."
-    );
-  }
-
   if (options.defaultConversation && options.conversationId) {
     throw new Error(
       "Cannot use both 'defaultConversation' and 'conversationId'. " +

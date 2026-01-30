@@ -183,10 +183,7 @@ export class SubprocessTransport {
     }
 
     // Conversation and agent handling
-    if (this.options.continue) {
-      // Resume last session (agent + conversation)
-      args.push("--continue");
-    } else if (this.options.conversationId) {
+    if (this.options.conversationId) {
       // Resume specific conversation (derives agent automatically)
       args.push("--conversation", this.options.conversationId);
     } else if (this.options.agentId) {
