@@ -134,7 +134,14 @@ export class Session implements AsyncDisposable {
   ): Promise<void> {
     let response: CanUseToolResponse;
 
-    if (this.options.canUseTool) {
+    // If bypassPermissions mode, auto-allow all tools
+    if (this.options.permissionMode === "bypassPermissions") {
+      response = {
+        behavior: "allow",
+        updatedInput: null,
+        updatedPermissions: [],
+      } satisfies CanUseToolResponseAllow;
+    } else if (this.options.canUseTool) {
       try {
         const result = await this.options.canUseTool(req.tool_name, req.input);
         if (result.behavior === "allow") {
