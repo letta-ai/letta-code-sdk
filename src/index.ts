@@ -123,20 +123,23 @@ export function resumeSession(
 /**
  * One-shot prompt convenience function.
  *
- * - With agentId: uses existing agent, creates new conversation
- * - Without agentId: creates new agent
+ * - Without agentId: uses default agent (like `letta -p`), new conversation
+ * - With agentId: uses specific agent, new conversation
  *
  * @example
  * ```typescript
- * const result = await prompt('What is the capital of France?', agentId);
- * const result = await prompt('What is 2+2?');  // creates new agent
+ * const result = await prompt('What is 2+2?');  // default agent
+ * const result = await prompt('What is the capital of France?', agentId);  // specific agent
  * ```
  */
 export async function prompt(
   message: string,
   agentId?: string
 ): Promise<SDKResultMessage> {
-  const session = createSession(agentId);
+  // Use default agent behavior (like letta -p) when no agentId specified
+  const session = agentId
+    ? createSession(agentId)
+    : new Session({ promptMode: true });
 
   try {
     await session.send(message);

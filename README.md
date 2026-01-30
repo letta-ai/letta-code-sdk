@@ -31,11 +31,11 @@ npm install @letta-ai/letta-code-sdk
 ```typescript
 import { prompt } from '@letta-ai/letta-code-sdk';
 
-// One-shot (creates new agent)
+// One-shot (uses default agent - like `letta -p`)
 const result = await prompt('What is 2 + 2?');
 console.log(result.result);
 
-// One-shot with existing agent
+// One-shot with specific agent
 const result2 = await prompt('Run: echo hello', agentId);
 ```
 
@@ -223,7 +223,8 @@ for await (const msg of session.stream()) { /* ... */ }
 | `createAgent()` | Create new agent with default conversation, returns `agentId` |
 | `createSession(agentId?, options?)` | Create new conversation (on existing agent if provided, or new agent) |
 | `resumeSession(id, options?)` | Resume session - pass `agent-xxx` for default conv, `conv-xxx` for specific conv |
-| `prompt(message, agentId?)` | One-shot query, optionally with existing agent |
+| `prompt(message)` | One-shot query with default agent (like `letta -p`) |
+| `prompt(message, agentId)` | One-shot query with specific agent |
 
 ### Session
 

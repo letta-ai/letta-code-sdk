@@ -107,6 +107,7 @@ export interface SessionOptions {
   /** @internal */ newConversation?: boolean;
   /** @internal */ defaultConversation?: boolean;
   /** @internal */ createOnly?: boolean;
+  /** @internal */ promptMode?: boolean;
 
   /**
    * System prompt configuration.
