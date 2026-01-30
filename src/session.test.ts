@@ -24,7 +24,10 @@ describe("Session", () => {
       await handleCanUseTool("test-request-id", {
         subtype: "can_use_tool",
         tool_name: "Bash",
+        tool_call_id: "test-tool-call-id",
         input: { command: "ls" },
+        permission_suggestions: [],
+        blocked_path: null,
       });
 
       // Verify the response auto-approves
@@ -60,7 +63,10 @@ describe("Session", () => {
       await handleCanUseTool("test-request-id", {
         subtype: "can_use_tool",
         tool_name: "Bash",
+        tool_call_id: "test-tool-call-id",
         input: { command: "ls" },
+        permission_suggestions: [],
+        blocked_path: null,
       });
 
       // Verify the response denies (no callback registered)
@@ -101,7 +107,10 @@ describe("Session", () => {
       await handleCanUseTool("test-request-id", {
         subtype: "can_use_tool",
         tool_name: "Bash",
+        tool_call_id: "test-tool-call-id",
         input: { command: "ls" },
+        permission_suggestions: [],
+        blocked_path: null,
       });
 
       // Verify callback was used and allowed
