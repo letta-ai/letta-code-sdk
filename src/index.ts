@@ -186,7 +186,7 @@ import type { ImageContent } from "./types.js";
 export function imageFromFile(filePath: string): ImageContent {
   const data = readFileSync(filePath).toString("base64");
   const ext = filePath.toLowerCase();
-  const mediaType: ImageContent["source"]["mediaType"] = 
+  const media_type: ImageContent["source"]["media_type"] = 
     ext.endsWith(".png") ? "image/png"
     : ext.endsWith(".gif") ? "image/gif"
     : ext.endsWith(".webp") ? "image/webp"
@@ -194,7 +194,7 @@ export function imageFromFile(filePath: string): ImageContent {
   
   return {
     type: "image",
-    source: { type: "base64", mediaType, data }
+    source: { type: "base64", media_type, data }
   };
 }
 
@@ -212,11 +212,11 @@ export function imageFromFile(filePath: string): ImageContent {
  */
 export function imageFromBase64(
   data: string,
-  mediaType: ImageContent["source"]["mediaType"] = "image/png"
+  media_type: ImageContent["source"]["media_type"] = "image/png"
 ): ImageContent {
   return {
     type: "image",
-    source: { type: "base64", mediaType, data }
+    source: { type: "base64", media_type, data }
   };
 }
 
@@ -240,18 +240,18 @@ export async function imageFromURL(url: string): Promise<ImageContent> {
   
   // Detect media type from content-type header or URL
   const contentType = response.headers.get("content-type");
-  let mediaType: ImageContent["source"]["mediaType"] = "image/png";
+  let media_type: ImageContent["source"]["media_type"] = "image/png";
   
   if (contentType?.includes("jpeg") || contentType?.includes("jpg") || url.match(/\.jpe?g$/i)) {
-    mediaType = "image/jpeg";
+    media_type = "image/jpeg";
   } else if (contentType?.includes("gif") || url.endsWith(".gif")) {
-    mediaType = "image/gif";
+    media_type = "image/gif";
   } else if (contentType?.includes("webp") || url.endsWith(".webp")) {
-    mediaType = "image/webp";
+    media_type = "image/webp";
   }
   
   return {
     type: "image",
-    source: { type: "base64", mediaType, data }
+    source: { type: "base64", media_type, data }
   };
 }

@@ -19,7 +19,7 @@ describe("Image helpers", () => {
 
         expect(result.type).toBe("image");
         expect(result.source.type).toBe("base64");
-        expect(result.source.mediaType).toBe("image/png");
+        expect(result.source.media_type).toBe("image/png");
         expect(typeof result.source.data).toBe("string");
         expect(result.source.data.length).toBeGreaterThan(0);
       } finally {
@@ -34,7 +34,7 @@ describe("Image helpers", () => {
 
       try {
         const result = imageFromFile(tempPath);
-        expect(result.source.mediaType).toBe("image/jpeg");
+        expect(result.source.media_type).toBe("image/jpeg");
       } finally {
         unlinkSync(tempPath);
       }
@@ -47,7 +47,7 @@ describe("Image helpers", () => {
 
       try {
         const result = imageFromFile(tempPath);
-        expect(result.source.mediaType).toBe("image/gif");
+        expect(result.source.media_type).toBe("image/gif");
       } finally {
         unlinkSync(tempPath);
       }
@@ -60,7 +60,7 @@ describe("Image helpers", () => {
 
       try {
         const result = imageFromFile(tempPath);
-        expect(result.source.mediaType).toBe("image/webp");
+        expect(result.source.media_type).toBe("image/webp");
       } finally {
         unlinkSync(tempPath);
       }
@@ -73,7 +73,7 @@ describe("Image helpers", () => {
 
       try {
         const result = imageFromFile(tempPath);
-        expect(result.source.mediaType).toBe("image/jpeg");
+        expect(result.source.media_type).toBe("image/jpeg");
       } finally {
         unlinkSync(tempPath);
       }
@@ -88,7 +88,7 @@ describe("Image helpers", () => {
 
       expect(result.type).toBe("image");
       expect(result.source.type).toBe("base64");
-      expect(result.source.mediaType).toBe("image/png");
+      expect(result.source.media_type).toBe("image/png");
       expect(result.source.data).toBe(data);
     });
 
@@ -97,7 +97,7 @@ describe("Image helpers", () => {
       
       const result = imageFromBase64(data, "image/jpeg");
 
-      expect(result.source.mediaType).toBe("image/jpeg");
+      expect(result.source.media_type).toBe("image/jpeg");
     });
 
     test("accepts all valid media types", () => {
@@ -105,7 +105,7 @@ describe("Image helpers", () => {
       
       for (const mediaType of types) {
         const result = imageFromBase64("data", mediaType);
-        expect(result.source.mediaType).toBe(mediaType);
+        expect(result.source.media_type).toBe(mediaType);
       }
     });
   });

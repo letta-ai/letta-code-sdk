@@ -46,7 +46,7 @@ export interface ImageContent {
   type: "image";
   source: {
     type: "base64";
-    mediaType: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+    media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
     data: string;
   };
 }
