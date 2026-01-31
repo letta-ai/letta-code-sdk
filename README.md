@@ -110,7 +110,7 @@ await using session3 = createSession(agentId);
 await session3.send('Start a fresh thread...');
 // session3.conversationId is different from conversationId
 
-// Create new agent + new conversation
+// Start fresh conversation with default agent
 await using session4 = createSession();
 ```
 
@@ -221,7 +221,8 @@ for await (const msg of session.stream()) { /* ... */ }
 | Function | Description |
 |----------|-------------|
 | `createAgent()` | Create new agent with default conversation, returns `agentId` |
-| `createSession(agentId?, options?)` | Create new conversation (on existing agent if provided, or new agent) |
+| `createSession()` | New conversation on default agent |
+| `createSession(agentId)` | New conversation on specified agent |
 | `resumeSession(id, options?)` | Resume session - pass `agent-xxx` for default conv, `conv-xxx` for specific conv |
 | `prompt(message)` | One-shot query with default agent (like `letta -p`) |
 | `prompt(message, agentId)` | One-shot query with specific agent |
@@ -297,6 +298,27 @@ bun examples/v2-examples.ts all
 # Run just conversation tests
 bun examples/v2-examples.ts conversations
 ```
+
+## Internals
+
+### CLI Mapping
+
+The SDK spawns the Letta Code CLI as a subprocess. Here's how API calls map to CLI flags:
+
+| Function | CLI Flags | Behavior |
+|----------|-----------|----------|
+| `createSession()` | `--new` | LRU agent + new conversation |
+| `createSession(agentId)` | `--agent X --new` | Specified agent + new conversation |
+| `createAgent()` | `--new-agent` | New agent + default conversation |
+| `resumeSession(agentId)` | `--agent X --default` | Specified agent + default conversation |
+| `resumeSession(convId)` | `--conversation X` | Derived agent + specified conversation |
+| `prompt(msg)` | *(none)* | LRU agent + default conversation |
+| `prompt(msg, agentId)` | `--agent X --new` | Specified agent + new conversation |
+
+**Key concepts:**
+- **LRU agent**: Most recently used agent from `.letta/settings.local.json`, or creates "Memo" if none exists
+- **Default conversation**: The agent's primary message history (always exists)
+- **New conversation**: Fresh message thread, isolated from other conversations
 
 ## License
 

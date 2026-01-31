@@ -811,25 +811,24 @@ async function testConversations() {
     console.log(`  matches session.conversationId: ${matchesSession ? 'PASS' : 'FAIL'}`);
   }
 
-  // Test 7: createSession() without agentId creates new agent + conversation
-  console.log('\nTest 7: createSession() without agentId...');
+  // Test 7: createSession() without agentId uses LRU agent + new conversation (like `letta`)
+  console.log('\nTest 7: createSession() without agentId (uses LRU agent)...');
   {
     await using session = createSession(undefined, {
       model: 'haiku',
       permissionMode: 'bypassPermissions',
     });
 
-    await session.send('Say "new agent test ok"');
+    await session.send('Say "lru agent test ok"');
     
     for await (const msg of session.stream()) {
       // drain
     }
 
-    const hasNewAgent = session.agentId !== null && session.agentId !== agentId;
+    const hasAgentId = session.agentId !== null;
     const hasConvId = session.conversationId !== null;
-    console.log(`  new agent created: ${hasNewAgent ? 'PASS' : 'FAIL'}`);
-    console.log(`  agentId: ${session.agentId}`);
-    console.log(`  conversationId: ${hasConvId ? 'PASS' : 'FAIL'} - ${session.conversationId}`);
+    console.log(`  has agentId: ${hasAgentId ? 'PASS' : 'FAIL'} - ${session.agentId}`);
+    console.log(`  has conversationId: ${hasConvId ? 'PASS' : 'FAIL'} - ${session.conversationId}`);
   }
 
   console.log();
