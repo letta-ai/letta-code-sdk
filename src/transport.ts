@@ -199,14 +199,14 @@ export class SubprocessTransport {
     } else if (this.options.promptMode) {
       // prompt() without agentId: no agent flags
       // Headless will use LRU agent or create Memo (like `letta -p "msg"`)
-    } else {
-      // Create new agent
+    } else if (this.options.createOnly) {
+      // createAgent() - explicitly create new agent
       args.push("--new-agent");
-      if (this.options.newConversation && !this.options.createOnly) {
-        // Also create new conversation (not default)
-        args.push("--new");
-      }
+    } else if (this.options.newConversation) {
+      // createSession() without agentId - LRU agent + new conversation
+      args.push("--new");
     }
+    // else: no agent flags = default behavior (LRU agent, default conversation)
 
     // Model
     if (this.options.model) {

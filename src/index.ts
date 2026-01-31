@@ -7,22 +7,24 @@
  * ```typescript
  * import { createAgent, createSession, resumeSession, prompt } from '@letta-ai/letta-code-sdk';
  *
- * // Create agent (has default conversation)
+ * // Start session with default agent + new conversation (like `letta`)
+ * const session = createSession();
+ *
+ * // Create a new agent explicitly
  * const agentId = await createAgent();
  *
- * // Resume default conversation
+ * // Resume default conversation on an agent
  * const session = resumeSession(agentId);
  *
  * // Resume specific conversation
  * const session = resumeSession('conv-xxx');
  *
- * // Create NEW conversation
+ * // Create new conversation on specific agent
  * const session = createSession(agentId);
- * const session = createSession();  // also creates new agent
  *
- * // One-shot prompt
- * const result = await prompt('Hello', agentId);
- * const result = await prompt('Hello');  // creates new agent
+ * // One-shot prompt (uses default agent)
+ * const result = await prompt('Hello');
+ * const result = await prompt('Hello', agentId);  // specific agent
  * ```
  */
 
@@ -71,16 +73,16 @@ export async function createAgent(): Promise<string> {
 /**
  * Create a new conversation (session).
  *
- * - With agentId: creates new conversation on existing agent
- * - Without agentId: creates new agent with new conversation
+ * - Without agentId: uses default/LRU agent with new conversation (like `letta`)
+ * - With agentId: creates new conversation on specified agent
  *
  * @example
  * ```typescript
- * // New conversation on existing agent
- * await using session = createSession(agentId);
- *
- * // New agent + new conversation
+ * // New conversation on default agent (like `letta`)
  * await using session = createSession();
+ *
+ * // New conversation on specific agent
+ * await using session = createSession(agentId);
  * ```
  */
 export function createSession(agentId?: string, options: SessionOptions = {}): Session {
