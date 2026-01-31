@@ -5,13 +5,9 @@
 The SDK interface to [Letta Code](https://github.com/letta-ai/letta-code). Build agents with persistent memory that learn over time.
 
 ```typescript
-import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
+import { createSession } from '@letta-ai/letta-code-sdk';
 
-// Create an agent (has default conversation)
-const agentId = await createAgent();
-
-// Resume default conversation
-const session = resumeSession(agentId);
+const session = createSession();
 await session.send('Find and fix the bug in auth.py');
 for await (const msg of session.stream()) {
   if (msg.type === 'assistant') console.log(msg.content);
@@ -83,7 +79,7 @@ for await (const msg of session2.stream()) {
 }
 ```
 
-### Multi-threaded Conversations
+## Multi-threaded Conversations
 
 Run multiple concurrent conversations with the same agent. Each conversation has its own message history while sharing the agent's persistent memory.
 
