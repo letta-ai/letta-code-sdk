@@ -219,6 +219,11 @@ export class SubprocessTransport {
     } else if (this.options.createOnly) {
       // createAgent() - explicitly create new agent
       args.push("--new-agent");
+    } else if (this.options.memory !== undefined && !this.options.agentId) {
+      // createSession() with memory blocks requires new agent + new conversation
+      // Memory blocks can only be set during agent creation with --new-agent
+      args.push("--new-agent");
+      args.push("--new");  // Also create the initial conversation
     } else if (this.options.newConversation) {
       // createSession() without agentId - LRU agent + new conversation
       args.push("--new");
