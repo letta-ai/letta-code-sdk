@@ -47,9 +47,24 @@ export type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
+  // Tool types
+  AgentTool,
+  AgentToolResult,
+  AgentToolResultContent,
+  AgentToolUpdateCallback,
+  AnyAgentTool,
 } from "./types.js";
 
 export { Session } from "./session.js";
+
+// Tool helpers
+export {
+  jsonResult,
+  readStringParam,
+  readNumberParam,
+  readBooleanParam,
+  readStringArrayParam,
+} from "./tool-helpers.js";
 
 /**
  * Create a new agent with a default conversation.
