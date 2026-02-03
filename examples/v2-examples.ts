@@ -211,20 +211,19 @@ async function testOptions() {
   const modelResult = await prompt('Say "model test ok"', agentId);
   console.log(`  basic: ${modelResult.success ? 'PASS' : 'FAIL'} - ${modelResult.result?.slice(0, 50)}`);
 
-  // Test systemPrompt option via createSession
-  console.log('Testing systemPrompt option...');
+  // Test systemPrompt preset via createSession (only presets allowed)
+  console.log('Testing systemPrompt preset...');
   const sysPromptSession = createSession(undefined, {
-    systemPrompt: 'You love penguins and always try to work penguin facts into conversations.',
+    systemPrompt: 'letta-claude',
     permissionMode: 'bypassPermissions',
   });
-  await sysPromptSession.send('Tell me a fun fact about penguins in one sentence.');
+  await sysPromptSession.send('Hello, what kind of agent are you?');
   let sysPromptResponse = '';
   for await (const msg of sysPromptSession.stream()) {
     if (msg.type === 'result') sysPromptResponse = msg.result || '';
   }
   sysPromptSession.close();
-  const hasPenguin = sysPromptResponse.toLowerCase().includes('penguin');
-  console.log(`  systemPrompt: ${hasPenguin ? 'PASS' : 'PARTIAL'} - ${sysPromptResponse.slice(0, 80)}`);
+  console.log(`  systemPrompt preset: ${sysPromptResponse ? 'PASS' : 'FAIL'} - ${sysPromptResponse.slice(0, 80)}`);
 
   // Test cwd option via createSession
   console.log('Testing cwd option...');
@@ -472,7 +471,8 @@ async function testSystemPrompt() {
   console.log('=== Testing System Prompt Configuration ===\n');
 
   async function runWithSystemPrompt(msg: string, systemPrompt: any): Promise<string> {
-    const session = createSession(undefined, { systemPrompt, permissionMode: 'bypassPermissions' });
+    const agentId = await createAgent({ systemPrompt });
+    const session = resumeSession(agentId, { permissionMode: 'bypassPermissions' });
     await session.send(msg);
     let result = '';
     for await (const m of session.stream()) {
@@ -532,7 +532,8 @@ async function testMemoryConfig() {
   console.log('=== Testing Memory Configuration ===\n');
 
   async function runWithMemory(msg: string, memory?: any[]): Promise<{ success: boolean; result: string }> {
-    const session = createSession(undefined, { memory, permissionMode: 'bypassPermissions' });
+    const agentId = await createAgent({ memory });
+    const session = resumeSession(agentId, { permissionMode: 'bypassPermissions' });
     await session.send(msg);
     let result = '';
     let success = false;
@@ -593,7 +594,8 @@ async function testConvenienceProps() {
   console.log('=== Testing Convenience Props ===\n');
 
   async function runWithProps(msg: string, props: Record<string, any>): Promise<{ success: boolean; result: string }> {
-    const session = createSession(undefined, { ...props, permissionMode: 'bypassPermissions' });
+    const agentId = await createAgent(props);
+    const session = resumeSession(agentId, { permissionMode: 'bypassPermissions' });
     await session.send(msg);
     let result = '';
     let success = false;
