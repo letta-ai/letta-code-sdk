@@ -18,6 +18,7 @@ import type {
   CanUseToolResponse,
   CanUseToolResponseAllow,
   CanUseToolResponseDeny,
+  SendMessage,
 } from "./types.js";
 import { validateSessionOptions } from "./validation.js";
 
@@ -84,8 +85,21 @@ export class Session implements AsyncDisposable {
 
   /**
    * Send a message to the agent
+   * 
+   * @param message - Text string or multimodal content array
+   * 
+   * @example
+   * // Simple text
+   * await session.send("Hello!");
+   * 
+   * @example
+   * // With image
+   * await session.send([
+   *   { type: "text", text: "What's in this image?" },
+   *   { type: "image", source: { type: "base64", mediaType: "image/png", data: "..." } }
+   * ]);
    */
-  async send(message: string): Promise<void> {
+  async send(message: SendMessage): Promise<void> {
     if (!this.initialized) {
       await this.initialize();
     }
