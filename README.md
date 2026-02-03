@@ -43,8 +43,12 @@ const result2 = await prompt('Run: echo hello', agentId);
 ```typescript
 import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
 
-// Create an agent (has default conversation)
-const agentId = await createAgent();
+// Create an agent with custom memory (has default conversation)
+const agentId = await createAgent({
+  memory: ['persona', 'project'],
+  persona: 'You are a helpful coding assistant',
+  project: 'A TypeScript web application'
+});
 
 // Resume the default conversation
 await using session = resumeSession(agentId);
@@ -219,12 +223,10 @@ for await (const msg of session.stream()) { /* ... */ }
 
 | Function | Description |
 |----------|-------------|
-| `createAgent()` | Create new agent with default conversation, returns `agentId` |
-| `createSession()` | New conversation on default agent |
-| `createSession(agentId)` | New conversation on specified agent |
+| `createAgent(options?)` | Create new agent with custom memory/prompt. No options = blank agent with default memory blocks. Returns `agentId` |
+| `createSession(agentId?, options?)` | New conversation on specified agent. No agentId = uses LRU agent (or creates "Memo" if none exists) |
 | `resumeSession(id, options?)` | Resume session - pass `agent-xxx` for default conv, `conv-xxx` for specific conv |
-| `prompt(message)` | One-shot query with default agent (like `letta -p`) |
-| `prompt(message, agentId)` | One-shot query with specific agent |
+| `prompt(message, agentId?)` | One-shot query with default/specified agent (like `letta -p`) |
 
 ### Session
 
@@ -239,23 +241,36 @@ for await (const msg of session.stream()) { /* ... */ }
 
 ### Options
 
-```typescript
-interface SessionOptions {
-  model?: string;
-  systemPrompt?: string | { type: 'preset'; preset: string; append?: string };
-  memory?: Array<string | CreateBlock | { blockId: string }>;
-  persona?: string;
-  human?: string;
-  project?: string;
-  cwd?: string;
+**CreateAgentOptions** (for `createAgent()` - full control):
 
-  // Tool configuration
-  allowedTools?: string[];
-  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions';
-  canUseTool?: (toolName: string, toolInput: object) => Promise<CanUseToolResponse>;
-  maxTurns?: number;
-}
+```typescript
+// Create blank agent
+await createAgent();
+
+// Create agent with custom memory and system prompt
+await createAgent({
+  model: 'claude-sonnet-4',
+  systemPrompt: 'You are a helpful Python expert.',
+  memory: ['persona', 'project'],
+  persona: 'You are a senior Python developer',
+  project: 'FastAPI backend for a todo app'
+});
 ```
+
+**CreateSessionOptions** (for `createSession()` / `resumeSession()` - runtime options):
+
+```typescript
+// Start session with permissions
+createSession(agentId, {
+  permissionMode: 'bypassPermissions',
+  allowedTools: ['Bash', 'Glob'],
+  cwd: '/path/to/project'
+});
+```
+
+**Available system prompt presets:**
+- `default` / `letta-claude`, `letta-codex`, `letta-gemini` - Full Letta Code prompts
+- `claude`, `codex`, `gemini` - Basic (no skills/memory instructions)
 
 ### Message Types
 
