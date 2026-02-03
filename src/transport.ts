@@ -6,7 +6,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
-import type { SessionOptions, WireMessage } from "./types.js";
+import type { InternalSessionOptions, WireMessage } from "./types.js";
 
 export class SubprocessTransport {
   private process: ChildProcess | null = null;
@@ -17,7 +17,7 @@ export class SubprocessTransport {
   private agentId?: string;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: InternalSessionOptions = {}
   ) {}
 
   /**
@@ -170,34 +170,7 @@ export class SubprocessTransport {
       "stream-json",
     ];
 
-    // Validate conversation + agent combinations
-    // (These require agentId context, so can't be in validateSessionOptions)
-    
-    // conversationId (non-default) cannot be used with agentId
-    if (this.options.conversationId && 
-        this.options.conversationId !== "default" && 
-        this.options.agentId) {
-      throw new Error(
-        "Cannot use both 'conversationId' and 'agentId'. " +
-        "When resuming a conversation, the agent is derived automatically."
-      );
-    }
-
-    // conversationId: "default" requires agentId
-    if (this.options.conversationId === "default" && !this.options.agentId) {
-      throw new Error(
-        "conversationId 'default' requires agentId. " +
-        "Use resumeSession(agentId, { defaultConversation: true }) instead."
-      );
-    }
-
-    // defaultConversation requires agentId
-    if (this.options.defaultConversation && !this.options.agentId) {
-      throw new Error(
-        "'defaultConversation' requires agentId. " +
-        "Use resumeSession(agentId, { defaultConversation: true })."
-      );
-    }
+    // Note: All validation happens in validateInternalSessionOptions() called from Session constructor
 
     // Conversation and agent handling
     if (this.options.conversationId) {
@@ -233,8 +206,23 @@ export class SubprocessTransport {
     // System prompt configuration
     if (this.options.systemPrompt !== undefined) {
       if (typeof this.options.systemPrompt === "string") {
-        // Raw string → --system-custom
-        args.push("--system-custom", this.options.systemPrompt);
+        // Check if it's a valid preset name or custom string
+        const validPresets = [
+          "default",
+          "letta-claude",
+          "letta-codex",
+          "letta-gemini",
+          "claude",
+          "codex",
+          "gemini",
+        ];
+        if (validPresets.includes(this.options.systemPrompt)) {
+          // Preset name → --system
+          args.push("--system", this.options.systemPrompt);
+        } else {
+          // Custom string → --system-custom
+          args.push("--system-custom", this.options.systemPrompt);
+        }
       } else {
         // Preset object → --system (+ optional --system-append)
         args.push("--system", this.options.systemPrompt.preset);

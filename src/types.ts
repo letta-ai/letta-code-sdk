@@ -128,27 +128,78 @@ export type CanUseToolCallback = (
 ) => Promise<CanUseToolResponse> | CanUseToolResponse;
 
 /**
- * Options for creating a session
+ * Internal session options used by Session/Transport classes.
+ * Not user-facing - use CreateSessionOptions or CreateAgentOptions instead.
+ * @internal
  */
-export interface SessionOptions {
-  /** Model to use (e.g., "claude-sonnet-4-20250514") */
+export interface InternalSessionOptions {
+  // Agent/conversation routing
+  agentId?: string;
+  conversationId?: string;
+  newConversation?: boolean;
+  defaultConversation?: boolean;
+  createOnly?: boolean;
+  promptMode?: boolean;
+
+  // Agent configuration
+  model?: string;
+  systemPrompt?: SystemPromptConfig;
+  
+  // Memory blocks (only for new agents)
+  memory?: MemoryItem[];
+  persona?: string;
+  human?: string;
+  project?: string;
+
+  // Permissions
+  allowedTools?: string[];
+  permissionMode?: PermissionMode;
+  canUseTool?: CanUseToolCallback;
+
+  // Process settings
+  cwd?: string;
+}
+
+export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions";
+
+/**
+ * Options for createSession() and resumeSession() - restricted to options that can be applied to existing agents (LRU/Memo).
+ * For creating new agents with custom memory/persona, use createAgent().
+ */
+export interface CreateSessionOptions {
+  /** Model to use (e.g., "claude-sonnet-4-20250514") - updates the agent's LLM config */
   model?: string;
 
-  // ═══════════════════════════════════════════════════════════════
-  // Internal flags - set by createSession/resumeSession, not user-facing
-  // ═══════════════════════════════════════════════════════════════
-  /** @internal */ conversationId?: string;
-  /** @internal */ newConversation?: boolean;
-  /** @internal */ defaultConversation?: boolean;
-  /** @internal */ createOnly?: boolean;
-  /** @internal */ promptMode?: boolean;
+  /** System prompt preset (only presets, no custom strings or append) - updates the agent */
+  systemPrompt?: SystemPromptPreset;
+
+  /** List of allowed tool names */
+  allowedTools?: string[];
+
+  /** Permission mode */
+  permissionMode?: PermissionMode;
+
+  /** Working directory for the CLI process */
+  cwd?: string;
+
+  /** Custom permission callback - called when tool needs approval */
+  canUseTool?: CanUseToolCallback;
+}
+
+/**
+ * Options for createAgent() - full control over agent creation.
+ */
+export interface CreateAgentOptions {
+  /** Model to use (e.g., "claude-sonnet-4-20250514") */
+  model?: string;
 
   /**
    * System prompt configuration.
    * - string: Use as the complete system prompt
+   * - SystemPromptPreset: Use a preset
    * - { type: 'preset', preset, append? }: Use a preset with optional appended text
    */
-  systemPrompt?: SystemPromptConfig;
+  systemPrompt?: string | SystemPromptPreset | SystemPromptPresetConfigSDK;
 
   /**
    * Memory block configuration. Each item can be:
@@ -173,17 +224,12 @@ export interface SessionOptions {
   /** Permission mode */
   permissionMode?: PermissionMode;
 
-  /** Working directory */
+  /** Working directory for the CLI process */
   cwd?: string;
-
-  /** Maximum conversation turns */
-  maxTurns?: number;
 
   /** Custom permission callback - called when tool needs approval */
   canUseTool?: CanUseToolCallback;
 }
-
-export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions";
 
 // ═══════════════════════════════════════════════════════════════
 // SDK MESSAGE TYPES

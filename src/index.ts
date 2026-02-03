@@ -29,11 +29,13 @@
  */
 
 import { Session } from "./session.js";
-import type { SessionOptions, SDKMessage, SDKResultMessage } from "./types.js";
+import type { CreateSessionOptions, CreateAgentOptions, SDKResultMessage } from "./types.js";
+import { validateCreateSessionOptions, validateCreateAgentOptions } from "./validation.js";
 
 // Re-export types
 export type {
-  SessionOptions,
+  CreateSessionOptions,
+  CreateAgentOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -62,14 +64,23 @@ export { Session } from "./session.js";
  *
  * @example
  * ```typescript
+ * // Create agent with default settings
  * const agentId = await createAgent();
+ *
+ * // Create agent with custom memory
+ * const agentId = await createAgent({
+ *   memory: ['persona', 'project'],
+ *   persona: 'You are a helpful coding assistant',
+ *   model: 'claude-sonnet-4'
+ * });
  *
  * // Then resume the default conversation:
  * const session = resumeSession(agentId);
  * ```
  */
-export async function createAgent(): Promise<string> {
-  const session = new Session({ createOnly: true });
+export async function createAgent(options: CreateAgentOptions = {}): Promise<string> {
+  validateCreateAgentOptions(options);
+  const session = new Session({ ...options, createOnly: true });
   const initMsg = await session.initialize();
   session.close();
   return initMsg.agentId;
@@ -90,7 +101,8 @@ export async function createAgent(): Promise<string> {
  * await using session = createSession(agentId);
  * ```
  */
-export function createSession(agentId?: string, options: SessionOptions = {}): Session {
+export function createSession(agentId?: string, options: CreateSessionOptions = {}): Session {
+  validateCreateSessionOptions(options);
   if (agentId) {
     return new Session({ ...options, agentId, newConversation: true });
   } else {
@@ -118,8 +130,9 @@ export function createSession(agentId?: string, options: SessionOptions = {}): S
  */
 export function resumeSession(
   id: string,
-  options: SessionOptions = {}
+  options: CreateSessionOptions = {}
 ): Session {
+  validateCreateSessionOptions(options);
   if (id.startsWith("conv-")) {
     return new Session({ ...options, conversationId: id });
   } else {

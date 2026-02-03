@@ -7,7 +7,7 @@
 
 import { SubprocessTransport } from "./transport.js";
 import type {
-  SessionOptions,
+  InternalSessionOptions,
   SDKMessage,
   SDKInitMessage,
   SDKAssistantMessage,
@@ -20,7 +20,7 @@ import type {
   CanUseToolResponseDeny,
   SendMessage,
 } from "./types.js";
-import { validateSessionOptions } from "./validation.js";
+
 
 export class Session implements AsyncDisposable {
   private transport: SubprocessTransport;
@@ -30,10 +30,9 @@ export class Session implements AsyncDisposable {
   private initialized = false;
 
   constructor(
-    private options: SessionOptions & { agentId?: string } = {}
+    private options: InternalSessionOptions = {}
   ) {
-    // Validate options before creating transport
-    validateSessionOptions(options);
+    // Note: Validation happens in public API functions (createSession, createAgent, etc.)
     this.transport = new SubprocessTransport(options);
   }
 
