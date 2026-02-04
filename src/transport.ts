@@ -258,14 +258,20 @@ export class SubprocessTransport {
           }
         }
 
-        // Add preset names via --init-blocks
-        if (presetNames.length > 0) {
-          args.push("--init-blocks", presetNames.join(","));
-        }
-
-        // Add custom blocks and block references via --memory-blocks
+        // NOTE: When custom blocks are provided via --memory-blocks, they define the complete
+        // memory configuration. Preset blocks (--init-blocks) cannot be mixed with custom blocks.
         if (memoryBlocksJson.length > 0) {
+          // Use custom blocks only
           args.push("--memory-blocks", JSON.stringify(memoryBlocksJson));
+          if (presetNames.length > 0) {
+            console.warn(
+              "[letta-code-sdk] Using custom memory blocks. " +
+              `Preset blocks are ignored when custom blocks are provided: ${presetNames.join(", ")}`
+            );
+          }
+        } else if (presetNames.length > 0) {
+          // Use presets only
+          args.push("--init-blocks", presetNames.join(","));
         }
       }
     }
@@ -277,9 +283,6 @@ export class SubprocessTransport {
       }
       if (this.options.human !== undefined) {
         args.push("--block-value", `human=${this.options.human}`);
-      }
-      if (this.options.project !== undefined) {
-        args.push("--block-value", `project=${this.options.project}`);
       }
     }
 

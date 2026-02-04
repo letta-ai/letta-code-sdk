@@ -45,9 +45,11 @@ import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
 
 // Create an agent with custom memory (has default conversation)
 const agentId = await createAgent({
-  memory: ['persona', 'project'],
-  persona: 'You are a helpful coding assistant',
-  project: 'A TypeScript web application'
+  memory: [
+    'persona',
+    { label: 'project', value: 'A TypeScript web application' }
+  ],
+  persona: 'You are a helpful coding assistant'
 });
 
 // Resume the default conversation
@@ -160,62 +162,7 @@ createSession(agentId, {
 - `codex` - Basic Codex
 - `gemini` - Basic Gemini
 
-### Memory Blocks
 
-Configure which memory blocks the session uses:
-
-```typescript
-// Use default blocks (persona, human, project)
-createSession(agentId);
-
-// Use specific preset blocks
-createSession(agentId, {
-  memory: ['project', 'persona']  // Only these blocks
-});
-
-// Use custom blocks
-createSession(agentId, {
-  memory: [
-    { label: 'context', value: 'API documentation for Acme Corp...' },
-    { label: 'rules', value: 'Always use TypeScript. Prefer functional patterns.' }
-  ]
-});
-
-// No optional blocks (only core skills blocks)
-createSession(agentId, {
-  memory: []
-});
-```
-
-### Convenience Props
-
-Quickly customize common memory blocks:
-
-```typescript
-createSession(agentId, {
-  persona: 'You are a senior Python developer who writes clean, tested code.',
-  human: 'Name: Alice. Prefers concise responses.',
-  project: 'FastAPI backend for a todo app using PostgreSQL.'
-});
-```
-
-### Tool Execution
-
-Execute tools with automatic permission handling:
-
-```typescript
-import { createAgent, createSession } from '@letta-ai/letta-code-sdk';
-
-// Create agent and run commands
-const agentId = await createAgent();
-const session = createSession(agentId, {
-  allowedTools: ['Glob', 'Bash'],
-  permissionMode: 'bypassPermissions',
-  cwd: '/path/to/project'
-});
-await session.send('List all TypeScript files');
-for await (const msg of session.stream()) { /* ... */ }
-```
 
 ## API Reference
 
@@ -251,9 +198,11 @@ await createAgent();
 await createAgent({
   model: 'claude-sonnet-4',
   systemPrompt: 'You are a helpful Python expert.',
-  memory: ['persona', 'project'],
-  persona: 'You are a senior Python developer',
-  project: 'FastAPI backend for a todo app'
+  memory: [
+    'persona',
+    { label: 'project', value: 'FastAPI backend for a todo app' }
+  ],
+  persona: 'You are a senior Python developer'
 });
 ```
 

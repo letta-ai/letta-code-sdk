@@ -113,7 +113,7 @@ export type MemoryItem =
 /**
  * Default memory block preset names.
  */
-export type MemoryPreset = "persona" | "human" | "project";
+export type MemoryPreset = "persona" | "human" | "skills" | "loaded_skills";
 
 // ═══════════════════════════════════════════════════════════════
 // SESSION OPTIONS
@@ -147,9 +147,8 @@ export interface InternalSessionOptions {
   
   // Memory blocks (only for new agents)
   memory?: MemoryItem[];
-  persona?: string;
-  human?: string;
-  project?: string;
+  persona?: string;  // Convenience for persona block
+  human?: string;    // Convenience for human block
 
   // Permissions
   allowedTools?: string[];
@@ -203,8 +202,8 @@ export interface CreateAgentOptions {
 
   /**
    * Memory block configuration. Each item can be:
-   * - string: Preset block name ("project", "persona", "human")
-   * - CreateBlock: Custom block definition
+   * - string: Preset block name ("persona", "human", "skills", "loaded_skills")
+   * - CreateBlock: Custom block definition (e.g., { label: "project", value: "..." })
    * - { blockId: string }: Reference to existing shared block
    */
   memory?: MemoryItem[];
@@ -214,9 +213,6 @@ export interface CreateAgentOptions {
 
   /** Convenience: Set human block value directly */
   human?: string;
-
-  /** Convenience: Set project block value directly */
-  project?: string;
 
   /** List of allowed tool names */
   allowedTools?: string[];

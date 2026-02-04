@@ -77,13 +77,6 @@ export function validateCreateAgentOptions(options: CreateAgentOptions): void {
           "Either add 'human' to memory array or remove the human option."
       );
     }
-
-    if (options.project !== undefined && !blockLabels.includes("project")) {
-      throw new Error(
-        "Cannot set 'project' value - block not included in 'memory'. " +
-          "Either add 'project' to memory array or remove the project option."
-      );
-    }
   }
 
   // Validate systemPrompt preset if provided as preset object
