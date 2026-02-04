@@ -557,8 +557,8 @@ async function testMemoryConfig() {
 
   // Test 2: Specific preset blocks only
   console.log('Testing specific preset blocks...');
-  const specificResult = await runWithMemory('List your memory block labels', ['project']);
-  console.log(`  specific blocks [project]: ${specificResult.success ? 'PASS' : 'FAIL'}`);
+  const specificResult = await runWithMemory('List your memory block labels', ['persona']);
+  console.log(`  specific blocks [persona]: ${specificResult.success ? 'PASS' : 'FAIL'}`);
 
   // Test 3: Custom blocks
   console.log('Testing custom memory blocks...');
@@ -570,13 +570,13 @@ async function testMemoryConfig() {
   console.log(`  custom blocks: ${customResult.success ? 'PASS' : 'FAIL'}`);
   console.log(`    Response is concise: ${isConcise ? 'yes' : 'check'}`);
 
-  // Test 4: Mixed preset and custom blocks
-  console.log('Testing mixed blocks (preset + custom)...');
-  const mixedResult = await runWithMemory(
+  // Test 4: Multiple preset blocks
+  console.log('Testing multiple preset blocks...');
+  const multipleResult = await runWithMemory(
     'List your memory blocks',
-    ['project', { label: 'custom-context', value: 'This is a test context block.' }]
+    ['persona', 'human']
   );
-  console.log(`  mixed blocks: ${mixedResult.success ? 'PASS' : 'FAIL'}`);
+  console.log(`  multiple presets: ${multipleResult.success ? 'PASS' : 'FAIL'}`);
 
   // Test 5: Empty memory (core blocks only)
   console.log('Testing empty memory (core only)...');
@@ -643,15 +643,12 @@ async function testConvenienceProps() {
   console.log(`  human: ${humanResult.success ? 'PASS' : 'FAIL'}`);
   console.log(`    Response mentions user info: ${hasHuman ? 'yes' : 'check'}`);
 
-  // Test 4: Multiple props together (preset + custom)
-  console.log('Testing multiple props (preset + custom blocks)...');
+  // Test 4: Multiple convenience props together
+  console.log('Testing multiple convenience props...');
   const multiResult = await runWithProps(
-    'Introduce yourself and the project briefly',
+    'Introduce yourself briefly',
     { 
-      memory: [
-        'persona',
-        { label: 'project', value: 'FastAPI backend service.' }
-      ],
+      memory: ['persona', 'human'],
       persona: 'You are a friendly code reviewer.',
       human: 'Name: Alice.'
     }

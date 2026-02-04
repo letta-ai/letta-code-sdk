@@ -45,11 +45,8 @@ import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
 
 // Create an agent with custom memory (has default conversation)
 const agentId = await createAgent({
-  memory: [
-    'persona',
-    { label: 'project', value: 'A TypeScript web application' }
-  ],
-  persona: 'You are a helpful coding assistant'
+  memory: ['persona'],
+  persona: 'You are a helpful coding assistant for TypeScript projects'
 });
 
 // Resume the default conversation
@@ -199,10 +196,9 @@ await createAgent({
   model: 'claude-sonnet-4',
   systemPrompt: 'You are a helpful Python expert.',
   memory: [
-    'persona',
+    { label: 'persona', value: 'You are a senior Python developer' },
     { label: 'project', value: 'FastAPI backend for a todo app' }
-  ],
-  persona: 'You are a senior Python developer'
+  ]
 });
 ```
 
