@@ -1,7 +1,6 @@
 # Letta Code SDK
 
-[![npm](https://img.shields.io/npm/v/@letta-ai/letta-code-sdk.svg?style=flat-square)](https://www.npmjs.com/package/@letta-ai/letta-code-sdk)
-[![Discord](https://img.shields.io/badge/discord-join-blue?style=flat-square&logo=discord)](https://discord.gg/letta)
+[![npm](https://img.shields.io/npm/v/@letta-ai/letta-code-sdk.svg?style=flat-square)](https://www.npmjs.com/package/@letta-ai/letta-code-sdk) [![Discord](https://img.shields.io/badge/discord-join-blue?style=flat-square&logo=discord)](https://discord.gg/letta)
 
 TypeScript SDK for programmatic use of [**Letta Code**](https://github.com/letta-ai/letta-code).
 
@@ -55,7 +54,6 @@ By default, `resumeSession(agentId)` continues the agent’s most recent convers
 
 - Docs: https://docs.letta.com/letta-code-sdk
 - Examples: [`./examples`](./examples)
-- Discord: https://discord.gg/letta
 
 ---
 
