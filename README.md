@@ -1,21 +1,14 @@
 # Letta Code SDK
 
-[![npm](https://img.shields.io/npm/v/@letta-ai/letta-code-sdk.svg?style=flat-square)](https://www.npmjs.com/package/@letta-ai/letta-code-sdk) [![Discord](https://img.shields.io/badge/discord-join-blue?style=flat-square&logo=discord)](https://discord.gg/letta)
+[![npm](https://img.shields.io/npm/v/@letta-ai/letta-code-sdk.svg?style=flat-square)](https://www.npmjs.com/package/@letta-ai/letta-code-sdk)
+[![Discord](https://img.shields.io/badge/discord-join-blue?style=flat-square&logo=discord)](https://discord.gg/letta)
+
+TypeScript SDK for programmatic use of [**Letta Code**](https://github.com/letta-ai/letta-code).
+
+**Docs (source of truth):** https://docs.letta.com/letta-code-sdk/overview
 
 > [!TIP]
-> Check out [**LettaBot**](https://github.com/letta-ai/lettabot) and [**Letta Cowork**](https://github.com/letta-ai/letta-cowork), two open-source apps built on the **Letta Code SDK**.
-
-The SDK interface to [**Letta Code**](https://github.com/letta-ai/letta-code). Build agents with persistent memory that learn over time.
-
-```typescript
-import { createSession } from '@letta-ai/letta-code-sdk';
-
-const session = createSession();
-await session.send('Find and fix the bug in auth.py');
-for await (const msg of session.stream()) {
-  if (msg.type === 'assistant') console.log(msg.content);
-}
-```
+> Check out [**LettaBot**](https://github.com/letta-ai/lettabot) and [**Letta Cowork**](https://github.com/letta-ai/letta-cowork), two open-source apps built on the SDK.
 
 ## Installation
 
@@ -23,262 +16,47 @@ for await (const msg of session.stream()) {
 npm install @letta-ai/letta-code-sdk
 ```
 
-## Quick Start
+## Quick start
 
 ### One-shot prompt
 
-```typescript
-import { prompt } from '@letta-ai/letta-code-sdk';
+```ts
+import { prompt } from "@letta-ai/letta-code-sdk";
 
-// One-shot (uses default agent - like `letta -p`)
-const result = await prompt('What is 2 + 2?');
+const result = await prompt("What is 2 + 2?");
 console.log(result.result);
-
-// One-shot with specific agent
-const result2 = await prompt('Run: echo hello', agentId);
 ```
 
-### Multi-turn session
+### Persistent agent with multi-turn conversations
 
-```typescript
-import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
+```ts
+import { createAgent, resumeSession } from "@letta-ai/letta-code-sdk";
 
-// Create an agent with custom memory (has default conversation)
 const agentId = await createAgent({
-  memory: ['persona'],
-  persona: 'You are a helpful coding assistant for TypeScript projects'
+  persona: "You are a helpful coding assistant for TypeScript projects.",
 });
 
-// Resume the default conversation
 await using session = resumeSession(agentId);
 
-await session.send('What is 5 + 3?');
+await session.send("Find and fix the bug in auth.ts");
 for await (const msg of session.stream()) {
-  if (msg.type === 'assistant') console.log(msg.content);
+  if (msg.type === "assistant") console.log(msg.content);
 }
 
-await session.send('Multiply that by 2');
+await session.send("Add a unit test for the fix");
 for await (const msg of session.stream()) {
-  if (msg.type === 'assistant') console.log(msg.content);
+  if (msg.type === "assistant") console.log(msg.content);
 }
 ```
 
-### Persistent memory
+By default, `resumeSession(agentId)` continues the agent’s most recent conversation. To start a fresh thread, use `createSession(agentId)` (see docs).
 
-Agents persist across sessions and remember context:
+## Links
 
-```typescript
-import { createAgent, resumeSession } from '@letta-ai/letta-code-sdk';
+- Docs: https://docs.letta.com/letta-code-sdk
+- Examples: [`./examples`](./examples)
+- Discord: https://discord.gg/letta
 
-// Create agent and teach it something
-const agentId = await createAgent();
-const session1 = resumeSession(agentId);
-await session1.send('Remember: the secret word is "banana"');
-for await (const msg of session1.stream()) { /* ... */ }
-session1.close();
+---
 
-// Later... resume the default conversation
-await using session2 = resumeSession(agentId);
-await session2.send('What is the secret word?');
-for await (const msg of session2.stream()) {
-  if (msg.type === 'assistant') console.log(msg.content); // "banana"
-}
-```
-
-## Multi-threaded Conversations
-
-Run multiple concurrent conversations with the same agent. Each conversation has its own message history while sharing the agent's persistent memory.
-
-```typescript
-import { createAgent, createSession, resumeSession } from '@letta-ai/letta-code-sdk';
-
-// Create an agent (has default conversation)
-const agentId = await createAgent();
-
-// Resume the default conversation
-const session1 = resumeSession(agentId);
-await session1.send('Hello!');
-for await (const msg of session1.stream()) { /* ... */ }
-const conversationId = session1.conversationId; // Save this!
-session1.close();
-
-// Resume a specific conversation by ID
-await using session2 = resumeSession(conversationId);  // auto-detects conv-xxx
-await session2.send('Continue our discussion...');
-for await (const msg of session2.stream()) { /* ... */ }
-
-// Create a NEW conversation on the same agent
-await using session3 = createSession(agentId);
-await session3.send('Start a fresh thread...');
-// session3.conversationId is different from conversationId
-
-// Start fresh conversation with default agent
-await using session4 = createSession();
-```
-
-**Key concepts:**
-- **Agent** (`agentId`): Persistent entity with memory that survives across sessions
-- **Conversation** (`conversationId`): A message thread within an agent
-- **Session**: A single execution/connection
-- **Default conversation**: Always exists after `createAgent()` - use `resumeSession(agentId)` to access it
-
-Agents remember across conversations (via memory blocks), but each conversation has its own message history.
-
-## Session Configuration
-
-### System Prompt
-
-Choose from built-in presets or provide a custom prompt:
-
-```typescript
-// Use a preset
-createSession(agentId, {
-  systemPrompt: { type: 'preset', preset: 'letta-claude' }
-});
-
-// Use a preset with additional instructions
-createSession(agentId, {
-  systemPrompt: { 
-    type: 'preset', 
-    preset: 'letta-claude',
-    append: 'Always respond in Spanish.'
-  }
-});
-
-// Use a completely custom prompt
-createSession(agentId, {
-  systemPrompt: 'You are a helpful Python expert.'
-});
-```
-
-**Available presets:**
-- `default` / `letta-claude` - Full Letta Code prompt (Claude-optimized)
-- `letta-codex` - Full Letta Code prompt (Codex-optimized)
-- `letta-gemini` - Full Letta Code prompt (Gemini-optimized)
-- `claude` - Basic Claude (no skills/memory instructions)
-- `codex` - Basic Codex
-- `gemini` - Basic Gemini
-
-
-
-## API Reference
-
-### Functions
-
-| Function | Description |
-|----------|-------------|
-| `createAgent(options?)` | Create new agent with custom memory/prompt. No options = blank agent with default memory blocks. Returns `agentId` |
-| `createSession(agentId?, options?)` | New conversation on specified agent. No agentId = uses LRU agent (or creates "Memo" if none exists) |
-| `resumeSession(id, options?)` | Resume session - pass `agent-xxx` for default conv, `conv-xxx` for specific conv |
-| `prompt(message, agentId?)` | One-shot query with default/specified agent (like `letta -p`) |
-
-### Session
-
-| Property/Method | Description |
-|-----------------|-------------|
-| `send(message)` | Send user message |
-| `stream()` | AsyncGenerator yielding messages |
-| `close()` | Close the session |
-| `agentId` | Agent ID (for resuming later) |
-| `sessionId` | Current session ID |
-| `conversationId` | Conversation ID (for resuming specific thread) |
-
-### Options
-
-**CreateAgentOptions** (for `createAgent()` - full control):
-
-```typescript
-// Create blank agent
-await createAgent();
-
-// Create agent with custom memory and system prompt
-await createAgent({
-  model: 'claude-sonnet-4',
-  systemPrompt: 'You are a helpful Python expert.',
-  memory: [
-    { label: 'persona', value: 'You are a senior Python developer' },
-    { label: 'project', value: 'FastAPI backend for a todo app' }
-  ]
-});
-```
-
-**CreateSessionOptions** (for `createSession()` / `resumeSession()` - runtime options):
-
-```typescript
-// Start session with permissions
-createSession(agentId, {
-  permissionMode: 'bypassPermissions',
-  allowedTools: ['Bash', 'Glob'],
-  cwd: '/path/to/project'
-});
-```
-
-**Available system prompt presets:**
-- `default` / `letta-claude`, `letta-codex`, `letta-gemini` - Full Letta Code prompts
-- `claude`, `codex`, `gemini` - Basic (no skills/memory instructions)
-
-### Message Types
-
-```typescript
-// Streamed during receive()
-interface SDKAssistantMessage {
-  type: 'assistant';
-  content: string;
-  uuid: string;
-}
-
-// Final message
-interface SDKResultMessage {
-  type: 'result';
-  success: boolean;
-  result?: string;
-  error?: string;
-  durationMs: number;
-  conversationId: string;
-}
-```
-
-## Examples
-
-See [`examples/`](./examples/) for comprehensive examples including:
-
-- Basic session usage
-- Multi-turn conversations
-- Session resume with persistent memory
-- **Multi-threaded conversations** (createSession, resumeSession)
-- System prompt configuration
-- Memory block customization
-- Tool execution (Bash, Glob, Read, etc.)
-
-Run examples:
-```bash
-bun examples/v2-examples.ts all
-
-# Run just conversation tests
-bun examples/v2-examples.ts conversations
-```
-
-## Internals
-
-### CLI Mapping
-
-The SDK spawns the Letta Code CLI as a subprocess. Here's how API calls map to CLI flags:
-
-| Function | CLI Flags | Behavior |
-|----------|-----------|----------|
-| `createSession()` | `--new` | LRU agent + new conversation |
-| `createSession(agentId)` | `--agent X --new` | Specified agent + new conversation |
-| `createAgent()` | `--new-agent` | New agent + default conversation |
-| `resumeSession(agentId)` | `--agent X --default` | Specified agent + default conversation |
-| `resumeSession(convId)` | `--conversation X` | Derived agent + specified conversation |
-| `prompt(msg)` | *(none)* | LRU agent + default conversation |
-| `prompt(msg, agentId)` | `--agent X --new` | Specified agent + new conversation |
-
-**Key concepts:**
-- **LRU agent**: Most recently used agent from `.letta/settings.local.json`, or creates "Memo" if none exists
-- **Default conversation**: The agent's primary message history (always exists)
-- **New conversation**: Fresh message thread, isolated from other conversations
-
-## License
-
-Apache-2.0
+Made with 💜 in San Francisco
