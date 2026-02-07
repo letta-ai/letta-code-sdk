@@ -139,10 +139,10 @@ export interface InternalSessionOptions {
   newConversation?: boolean;
   defaultConversation?: boolean;
   createOnly?: boolean;
-  promptMode?: boolean;
 
   // Agent configuration
   model?: string;
+  embedding?: string;
   systemPrompt?: SystemPromptConfig;
   
   // Memory blocks (only for new agents)
@@ -191,6 +191,9 @@ export interface CreateSessionOptions {
 export interface CreateAgentOptions {
   /** Model to use (e.g., "claude-sonnet-4-20250514") */
   model?: string;
+
+  /** Embedding model to use (e.g., "text-embedding-ada-002") */
+  embedding?: string;
 
   /**
    * System prompt configuration.

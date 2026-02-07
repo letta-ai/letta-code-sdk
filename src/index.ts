@@ -159,7 +159,7 @@ export async function prompt(
   // Use default agent behavior (like letta -p) when no agentId specified
   const session = agentId
     ? createSession(agentId)
-    : new Session({ promptMode: true });
+    : createSession();
 
   try {
     await session.send(message);
