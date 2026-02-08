@@ -49,6 +49,10 @@ for await (const msg of session.stream()) {
 
 By default, `resumeSession(agentId)` continues the agent’s default conversation. To start a fresh thread, use `createSession(agentId)` (see docs).
 
+### Stream buffering
+
+If you do not consume `session.stream()`, the SDK buffers up to `messageQueueSize` messages (default `1000`). When the queue is full, the oldest messages are dropped and a warning is logged with the running `droppedMessageCount`. Configure this via `createSession()`/`createAgent()` options.
+
 ## Links
 
 - Docs: https://docs.letta.com/letta-code-sdk

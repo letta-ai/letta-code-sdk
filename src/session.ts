@@ -28,12 +28,27 @@ export class Session implements AsyncDisposable {
   private _sessionId: string | null = null;
   private _conversationId: string | null = null;
   private initialized = false;
+  private pumpRunning = false;
+  private pumpClosed = false;
+  private pumpError: Error | null = null;
+  private messageQueue: SDKMessage[] = [];
+  private messageResolvers: Array<(msg: SDKMessage | null) => void> = [];
+  private queuedInitMessage: SDKInitMessage | null = null;
+  private maxQueueSize: number;
+  private droppedMessageCount = 0;
+  private initPromise: Promise<SDKInitMessage> | null = null;
+  private initResolver: ((msg: SDKInitMessage) => void) | null = null;
+  private initRejecter: ((err: Error) => void) | null = null;
+  private pendingInitMessage: SDKInitMessage | null = null;
+  private approvalBarrier: Promise<void> | null = null;
+  private approvalBarrierResolve: (() => void) | null = null;
 
   constructor(
     private options: InternalSessionOptions = {}
   ) {
     // Note: Validation happens in public API functions (createSession, createAgent, etc.)
     this.transport = new SubprocessTransport(options);
+    this.maxQueueSize = options.messageQueueSize ?? 1000;
   }
 
   /**
@@ -45,7 +60,9 @@ export class Session implements AsyncDisposable {
     }
 
     await this.transport.connect();
+    this.startPump();
 
+    const initPromise = this.waitForInitMessage();
     // Send initialize control request
     await this.transport.write({
       type: "control_request",
@@ -53,33 +70,13 @@ export class Session implements AsyncDisposable {
       request: { subtype: "initialize" },
     });
 
-    // Wait for init message
-    for await (const msg of this.transport.messages()) {
-      if (msg.type === "system" && "subtype" in msg && msg.subtype === "init") {
-        const initMsg = msg as WireMessage & {
-          agent_id: string;
-          session_id: string;
-          conversation_id: string;
-          model: string;
-          tools: string[];
-        };
-        this._agentId = initMsg.agent_id;
-        this._sessionId = initMsg.session_id;
-        this._conversationId = initMsg.conversation_id;
-        this.initialized = true;
+    const initMsg = await initPromise;
+    this._agentId = initMsg.agentId;
+    this._sessionId = initMsg.sessionId;
+    this._conversationId = initMsg.conversationId;
+    this.initialized = true;
 
-        return {
-          type: "init",
-          agentId: initMsg.agent_id,
-          sessionId: initMsg.session_id,
-          conversationId: initMsg.conversation_id,
-          model: initMsg.model,
-          tools: initMsg.tools,
-        };
-      }
-    }
-
-    throw new Error("Failed to initialize session - no init message received");
+    return initMsg;
   }
 
   /**
@@ -103,6 +100,7 @@ export class Session implements AsyncDisposable {
       await this.initialize();
     }
 
+    await this.waitForApprovalClear();
     await this.transport.write({
       type: "user",
       message: { role: "user", content: message },
@@ -113,27 +111,18 @@ export class Session implements AsyncDisposable {
    * Stream messages from the agent
    */
   async *stream(): AsyncGenerator<SDKMessage> {
-    for await (const wireMsg of this.transport.messages()) {
-      // Handle CLI → SDK control requests (e.g., can_use_tool)
-      if (wireMsg.type === "control_request") {
-        const controlReq = wireMsg as ControlRequest;
-        if (controlReq.request.subtype === "can_use_tool") {
-          await this.handleCanUseTool(
-            controlReq.request_id,
-            controlReq.request as CanUseToolControlRequest
-          );
-          continue;
-        }
-      }
+    if (!this.initialized) {
+      await this.initialize();
+    }
 
-      const sdkMsg = this.transformMessage(wireMsg);
-      if (sdkMsg) {
-        yield sdkMsg;
+    while (true) {
+      const sdkMsg = await this.readSdkMessage();
+      if (!sdkMsg) break;
+      yield sdkMsg;
 
-        // Stop on result message
-        if (sdkMsg.type === "result") {
-          break;
-        }
+      // Stop on result message
+      if (sdkMsg.type === "result") {
+        break;
       }
     }
   }
@@ -145,6 +134,7 @@ export class Session implements AsyncDisposable {
     requestId: string,
     req: CanUseToolControlRequest
   ): Promise<void> {
+    const releaseBarrier = this.startApprovalBarrier();
     let response: CanUseToolResponse;
 
     // If bypassPermissions mode, auto-allow all tools
@@ -187,20 +177,25 @@ export class Session implements AsyncDisposable {
     }
 
     // Send control_response (Claude SDK compatible format)
-    await this.transport.write({
-      type: "control_response",
-      response: {
-        subtype: "success",
-        request_id: requestId,
-        response,
-      },
-    });
+    try {
+      await this.transport.write({
+        type: "control_response",
+        response: {
+          subtype: "success",
+          request_id: requestId,
+          response,
+        },
+      });
+    } finally {
+      releaseBarrier();
+    }
   }
 
   /**
    * Abort the current operation (interrupt without closing the session)
    */
   async abort(): Promise<void> {
+    await this.waitForApprovalClear();
     await this.transport.write({
       type: "control_request",
       request_id: `interrupt-${Date.now()}`,
@@ -212,6 +207,7 @@ export class Session implements AsyncDisposable {
    * Close the session
    */
   close(): void {
+    this.releaseApprovalBarrier();
     this.transport.close();
   }
 
@@ -374,5 +370,182 @@ export class Session implements AsyncDisposable {
 
     // Skip other message types (system_message, user_message, etc.)
     return null;
+  }
+
+  private startPump(): void {
+    if (this.pumpRunning) return;
+    this.pumpRunning = true;
+    void this.pumpLoop();
+  }
+
+  private async pumpLoop(): Promise<void> {
+    try {
+      for await (const wireMsg of this.transport.messages()) {
+        // Handle CLI → SDK control requests (e.g., can_use_tool)
+        if (wireMsg.type === "control_request") {
+          const controlReq = wireMsg as ControlRequest;
+          if (controlReq.request.subtype === "can_use_tool") {
+            await this.handleCanUseTool(
+              controlReq.request_id,
+              controlReq.request as CanUseToolControlRequest
+            );
+            continue;
+          }
+        }
+
+        const sdkMsg = this.transformMessage(wireMsg);
+        if (sdkMsg) {
+          if (sdkMsg.type === "init") {
+            this.resolveInitMessage(sdkMsg);
+            this.queueInitMessage(sdkMsg);
+          } else {
+            this.enqueueMessage(sdkMsg);
+          }
+        }
+      }
+    } catch (err) {
+      this.pumpError = err instanceof Error ? err : new Error("Message pump failed");
+    } finally {
+      this.pumpClosed = true;
+      this.resolveMessageReaders();
+      this.rejectInitIfPending();
+    }
+  }
+
+  private enqueueMessage(msg: SDKMessage): void {
+    if (this.messageResolvers.length > 0) {
+      const resolve = this.messageResolvers.shift()!;
+      resolve(msg);
+    } else {
+      this.dropOldestIfNeeded();
+      this.messageQueue.push(msg);
+    }
+  }
+
+  private queueInitMessage(msg: SDKInitMessage): void {
+    if (this.messageResolvers.length > 0) {
+      const resolve = this.messageResolvers.shift()!;
+      resolve(msg);
+      return;
+    }
+
+    if (!this.queuedInitMessage) {
+      this.queuedInitMessage = msg;
+    }
+  }
+
+  private dropOldestIfNeeded(): void {
+    if (this.maxQueueSize <= 0) {
+      return;
+    }
+
+    while (this.messageQueue.length >= this.maxQueueSize) {
+      const dropped = this.messageQueue.shift();
+      if (!dropped) break;
+      this.droppedMessageCount += 1;
+      console.warn(
+        "[letta-code-sdk] Dropped queued message due to full queue. " +
+        `droppedMessageCount=${this.droppedMessageCount}`
+      );
+    }
+  }
+
+  private resolveMessageReaders(): void {
+    for (const resolve of this.messageResolvers) {
+      resolve(null);
+    }
+    this.messageResolvers = [];
+  }
+
+  private async readSdkMessage(): Promise<SDKMessage | null> {
+    if (this.queuedInitMessage) {
+      const msg = this.queuedInitMessage;
+      this.queuedInitMessage = null;
+      return msg;
+    }
+
+    if (this.messageQueue.length > 0) {
+      return this.messageQueue.shift()!;
+    }
+
+    if (this.pumpError) {
+      throw this.pumpError;
+    }
+
+    if (this.pumpClosed) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      this.messageResolvers.push(resolve);
+    });
+  }
+
+  private waitForInitMessage(): Promise<SDKInitMessage> {
+    if (this.pendingInitMessage) {
+      const msg = this.pendingInitMessage;
+      this.pendingInitMessage = null;
+      return Promise.resolve(msg);
+    }
+
+    if (!this.initPromise) {
+      this.initPromise = new Promise((resolve, reject) => {
+        this.initResolver = resolve;
+        this.initRejecter = reject;
+      });
+    }
+
+    return this.initPromise;
+  }
+
+  private resolveInitMessage(msg: SDKInitMessage): void {
+    if (this.initResolver) {
+      const resolve = this.initResolver;
+      this.initResolver = null;
+      this.initRejecter = null;
+      this.initPromise = null;
+      resolve(msg);
+      return;
+    }
+
+    this.pendingInitMessage = msg;
+  }
+
+  private rejectInitIfPending(): void {
+    if (this.initRejecter) {
+      const reject = this.initRejecter;
+      this.initResolver = null;
+      this.initRejecter = null;
+      this.initPromise = null;
+      reject(new Error("Failed to initialize session - no init message received"));
+    }
+  }
+
+  private startApprovalBarrier(): () => void {
+    if (this.approvalBarrier) {
+      return () => undefined;
+    }
+
+    this.approvalBarrier = new Promise((resolve) => {
+      this.approvalBarrierResolve = resolve;
+    });
+
+    return () => {
+      this.releaseApprovalBarrier();
+    };
+  }
+
+  private releaseApprovalBarrier(): void {
+    if (this.approvalBarrierResolve) {
+      this.approvalBarrierResolve();
+    }
+    this.approvalBarrier = null;
+    this.approvalBarrierResolve = null;
+  }
+
+  private async waitForApprovalClear(): Promise<void> {
+    if (this.approvalBarrier) {
+      await this.approvalBarrier;
+    }
   }
 }

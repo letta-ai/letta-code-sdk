@@ -1,5 +1,28 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Session } from "./session.js";
+import type { SDKMessage, WireMessage } from "./types.js";
+
+function createFakeTransport(
+  messages: WireMessage[],
+  onWrite?: (data: unknown) => void
+) {
+  const writes: unknown[] = [];
+  const transport = {
+    connect: async () => {},
+    write: async (data: unknown) => {
+      writes.push(data);
+      onWrite?.(data);
+    },
+    messages: async function* () {
+      for (const msg of messages) {
+        yield msg;
+      }
+    },
+    close: () => {},
+  };
+
+  return { transport, writes };
+}
 
 describe("Session", () => {
   describe("handleCanUseTool with bypassPermissions", () => {
@@ -125,5 +148,191 @@ describe("Session", () => {
         },
       });
     });
+  });
+
+  test("stream yields init message", async () => {
+    const session = new Session();
+
+    const initMessage = {
+      type: "system",
+      subtype: "init",
+      agent_id: "agent-1",
+      session_id: "session-1",
+      conversation_id: "conv-1",
+      model: "test-model",
+      tools: [],
+    } as unknown as WireMessage;
+    const assistantMessage = {
+      type: "message",
+      message_type: "assistant_message",
+      uuid: "msg-1",
+      content: "hello",
+    } as unknown as WireMessage;
+    const resultMessage = {
+      type: "result",
+      subtype: "success",
+      duration_ms: 5,
+      conversation_id: "conv-1",
+      result: "done",
+    } as unknown as WireMessage;
+
+    const { transport } = createFakeTransport([
+      initMessage,
+      assistantMessage,
+      resultMessage,
+    ]);
+
+    // @ts-expect-error - overriding private transport for testing
+    session.transport = transport;
+
+    const received: string[] = [];
+    for await (const msg of session.stream()) {
+      received.push(msg.type);
+    }
+
+    expect(received).toEqual(["init", "assistant", "result"]);
+  });
+
+  test("drops oldest queued messages when queue is full", async () => {
+    const originalWarn = console.warn;
+    let warnCount = 0;
+    let lastWarn = "";
+    console.warn = (...args: unknown[]) => {
+      warnCount += 1;
+      lastWarn = args.map((arg) => String(arg)).join(" ");
+    };
+
+    try {
+      const session = new Session({ messageQueueSize: 2 });
+
+      const initMessage = {
+        type: "system",
+        subtype: "init",
+        agent_id: "agent-1",
+        session_id: "session-1",
+        conversation_id: "conv-1",
+        model: "test-model",
+        tools: [],
+      } as unknown as WireMessage;
+      const assistantOne = {
+        type: "message",
+        message_type: "assistant_message",
+        uuid: "msg-1",
+        content: "one",
+      } as unknown as WireMessage;
+      const assistantTwo = {
+        type: "message",
+        message_type: "assistant_message",
+        uuid: "msg-2",
+        content: "two",
+      } as unknown as WireMessage;
+      const assistantThree = {
+        type: "message",
+        message_type: "assistant_message",
+        uuid: "msg-3",
+        content: "three",
+      } as unknown as WireMessage;
+
+      const { transport } = createFakeTransport([
+        initMessage,
+        assistantOne,
+        assistantTwo,
+        assistantThree,
+      ]);
+
+      // @ts-expect-error - overriding private transport for testing
+      session.transport = transport;
+
+      await session.initialize();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // @ts-expect-error - accessing private queue for testing
+      const queued = session.messageQueue as SDKMessage[];
+
+      expect(queued.length).toBe(2);
+      const [first, second] = queued;
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      if (!first || !second) {
+        throw new Error("Expected queued messages to be present");
+      }
+      expect(first.type).toBe("assistant");
+      expect(second.type).toBe("assistant");
+      expect((first as { content: string }).content).toBe("two");
+      expect((second as { content: string }).content).toBe("three");
+      expect(warnCount).toBe(1);
+      expect(lastWarn).toContain("Dropped queued message");
+      expect(lastWarn).toContain("droppedMessageCount=1");
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
+  test("handles approvals without stream consumption and blocks send", async () => {
+    let canUseToolCalledResolve!: () => void;
+    const canUseToolCalled = new Promise<void>((resolve) => {
+      canUseToolCalledResolve = resolve;
+    });
+    let allowResolve!: () => void;
+    const allowPromise = new Promise<void>((resolve) => {
+      allowResolve = resolve;
+    });
+
+    const session = new Session({
+      canUseTool: async () => {
+        canUseToolCalledResolve();
+        await allowPromise;
+        return { behavior: "allow" };
+      },
+    });
+
+    const initMessage = {
+      type: "system",
+      subtype: "init",
+      agent_id: "agent-1",
+      session_id: "session-1",
+      conversation_id: "conv-1",
+      model: "test-model",
+      tools: [],
+    } as unknown as WireMessage;
+    const controlRequest = {
+      type: "control_request",
+      request_id: "req-1",
+      request: {
+        subtype: "can_use_tool",
+        tool_name: "Bash",
+        tool_call_id: "tool-1",
+        input: { command: "ls" },
+        permission_suggestions: [],
+        blocked_path: null,
+      },
+    } as unknown as WireMessage;
+
+    const { transport, writes } = createFakeTransport([
+      initMessage,
+      controlRequest,
+    ]);
+
+    // @ts-expect-error - overriding private transport for testing
+    session.transport = transport;
+
+    await session.initialize();
+    await canUseToolCalled;
+
+    const sendPromise = session.send("hello");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(writes.some((entry) => (entry as { type?: string }).type === "user")).toBe(false);
+
+    allowResolve();
+    await sendPromise;
+
+    const controlIndex = writes.findIndex(
+      (entry) => (entry as { type?: string }).type === "control_response"
+    );
+    const userIndex = writes.findIndex(
+      (entry) => (entry as { type?: string }).type === "user"
+    );
+    expect(controlIndex).toBeGreaterThanOrEqual(0);
+    expect(userIndex).toBeGreaterThan(controlIndex);
   });
 });

@@ -47,6 +47,16 @@ function validateSystemPromptPreset(preset: string): void {
 }
 
 /**
+ * Validate message queue size value.
+ */
+function validateMessageQueueSize(size: number | undefined): void {
+  if (size === undefined) return;
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("messageQueueSize must be a positive integer");
+  }
+}
+
+/**
  * Validate CreateSessionOptions (used by createSession and resumeSession).
  */
 export function validateCreateSessionOptions(options: CreateSessionOptions): void {
@@ -54,6 +64,8 @@ export function validateCreateSessionOptions(options: CreateSessionOptions): voi
   if (options.systemPrompt !== undefined) {
     validateSystemPromptPreset(options.systemPrompt);
   }
+
+  validateMessageQueueSize(options.messageQueueSize);
 }
 
 /**
@@ -104,4 +116,6 @@ export function validateCreateAgentOptions(options: CreateAgentOptions): void {
     }
     // If not a preset, it's a custom string - no validation needed
   }
+
+  validateMessageQueueSize(options.messageQueueSize);
 }
