@@ -155,6 +155,9 @@ export interface InternalSessionOptions {
   permissionMode?: PermissionMode;
   canUseTool?: CanUseToolCallback;
 
+  // Stream message queue settings
+  messageQueueSize?: number;
+
   // Process settings
   cwd?: string;
 }
@@ -178,11 +181,14 @@ export interface CreateSessionOptions {
   /** Permission mode */
   permissionMode?: PermissionMode;
 
-  /** Working directory for the CLI process */
-  cwd?: string;
-
   /** Custom permission callback - called when tool needs approval */
   canUseTool?: CanUseToolCallback;
+
+  /** Max queued SDK messages when stream is not consumed */
+  messageQueueSize?: number;
+
+  /** Working directory for the CLI process */
+  cwd?: string;
 }
 
 /**
@@ -223,11 +229,14 @@ export interface CreateAgentOptions {
   /** Permission mode */
   permissionMode?: PermissionMode;
 
-  /** Working directory for the CLI process */
-  cwd?: string;
-
   /** Custom permission callback - called when tool needs approval */
   canUseTool?: CanUseToolCallback;
+
+  /** Max queued SDK messages when stream is not consumed */
+  messageQueueSize?: number;
+
+  /** Working directory for the CLI process */
+  cwd?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
